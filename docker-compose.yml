@@ -1,0 +1,27 @@
+services:
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_DB: draftboard
+      POSTGRES_USER: draftboard
+      POSTGRES_PASSWORD: draftboard
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql+asyncpg://draftboard:draftboard@db:5432/draftboard
+      APP_ENV: dev
+      APP_DEBUG: "true"
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+
+volumes:
+  pgdata:
