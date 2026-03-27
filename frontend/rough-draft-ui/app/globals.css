@@ -1,8 +1,7 @@
-/* app/globals.css */
 @import "tailwindcss";
 
 :root {
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 html,
@@ -11,5 +10,6 @@ body {
 }
 
 body {
-  @apply bg-slate-50 text-slate-900;
+  background: rgb(2 6 23); /* slate-950 */
+  color: rgb(241 245 249); /* slate-100 */
 }

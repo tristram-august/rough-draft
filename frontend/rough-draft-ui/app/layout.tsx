@@ -12,23 +12,23 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body>
         <Providers>
-          <div className="min-h-screen bg-gradient-to-b from-slate-100 via-slate-50 to-white text-slate-900">
-            <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/70 backdrop-blur">
+          <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900 text-slate-100">
+            <header className="sticky top-0 z-20 border-b border-slate-800 bg-slate-950/70 backdrop-blur">
               <div className="mx-auto max-w-5xl px-4 py-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-xl border border-slate-200 bg-white shadow-sm flex items-center justify-center font-semibold">
+                  <div className="h-9 w-9 rounded-xl border border-slate-800 bg-slate-900/40 shadow-sm flex items-center justify-center font-semibold">
                     RD
                   </div>
                   <div>
                     <div className="text-lg font-semibold leading-tight">Rough Draft</div>
-                    <div className="text-xs text-slate-500">
+                    <div className="text-xs text-slate-400">
                       Draft board + community bust/success votes
                     </div>
                   </div>
                 </div>
 
                 <a
-                  className="text-sm text-slate-500 hover:text-slate-900"
+                  className="text-sm text-slate-400 hover:text-slate-100"
                   href="http://localhost:8000/docs"
                   target="_blank"
                   rel="noreferrer"
@@ -41,7 +41,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <main className="mx-auto max-w-5xl px-4 py-6">{children}</main>
 
             <footer className="mx-auto max-w-5xl px-4 pb-8 pt-2 text-xs text-slate-500">
-              <div className="border-t border-slate-200 pt-4">Rough Draft • local dev</div>
+              <div className="border-t border-slate-800 pt-4">Rough Draft • local dev</div>
             </footer>
           </div>
         </Providers>
