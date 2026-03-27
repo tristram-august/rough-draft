@@ -1,15 +1,18 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime  # <-- add datetime here
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     Date,
+    DateTime,
     ForeignKey,
     Index,
     Integer,
     String,
     Text,
     UniqueConstraint,
+    func,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy import DateTime, Enum as SAEnum, func, Boolean, Float, UniqueConstraint

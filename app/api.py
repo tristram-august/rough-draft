@@ -8,6 +8,7 @@ from app.db import db_session
 from app.mappers import pick_to_board_row, pick_to_detail, team_out
 from app.models import DraftPick, Team
 from app.repo import get_pick_detail, get_player_detail, get_team_draft_class, list_draft_board
+from app.repo_votes_bulk import get_community_votes_for_picks, get_your_votes_for_picks 
 from app.schemas import DraftBoardRow, PickDetail, PlayerDetail, PlayerSeasonStatOut, TeamDraftClass, VoteIn, CommunityVotesOut, VoteOut
 from app.repo_votes import (
     community_votes_out,
@@ -26,6 +27,15 @@ async def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+def _anon_voter_key(x_client_id: str | None) -> str | None:
+    if not x_client_id:
+        return None
+    x_client_id = x_client_id.strip()
+    if len(x_client_id) < 8 or len(x_client_id) > 64:
+        return None
+    return x_client_id
+
+
 @router.get("/draft", response_model=list[DraftBoardRow])
 async def draft_board(
     year: int = Query(..., ge=1936, le=2100),
@@ -35,6 +45,7 @@ async def draft_board(
     q: str | None = Query(None, min_length=1, max_length=128),
     limit: int = Query(200, ge=1, le=1000),
     offset: int = Query(0, ge=0, le=100000),
+    x_client_id: str | None = Header(default=None, alias="X-Client-Id"),
     session: AsyncSession = Depends(db_session),
 ) -> list[DraftBoardRow]:
     picks = await list_draft_board(
@@ -54,7 +65,31 @@ async def draft_board(
         res = await session.execute(select(Team).where(Team.id.in_(traded_team_ids)))
         traded_teams = {t.id: t for t in res.scalars().all()}
 
-    return [pick_to_board_row(p, traded_from_team=traded_teams.get(p.traded_from_team_id)) for p in picks]
+    pick_ids = [p.id for p in picks]
+    cv_map = await get_community_votes_for_picks(session, pick_ids=pick_ids)
+
+    voter_key = _anon_voter_key(x_client_id)
+    your_map: dict[int, str] = {}
+    if voter_key:
+        your_map = await get_your_votes_for_picks(
+            session,
+            pick_ids=pick_ids,
+            voter_type="anon",
+            voter_key=voter_key,
+        )
+
+    rows: list[DraftBoardRow] = []
+    for p in picks:
+        row = pick_to_board_row(p, traded_from_team=traded_teams.get(p.traded_from_team_id))
+        if p.id in cv_map:
+            row.community_votes = cv_map[p.id]
+        else:
+            row.community_votes = {"success": 0, "bust": 0, "total": 0, "community_score": 0, "community_label": "LowSignal"}
+        if p.id in your_map:
+            row.your_vote = {"value": your_map[p.id]}
+        rows.append(row)
+
+    return rows
 
 
 @router.get("/pick/{year}/{overall}", response_model=PickDetail)

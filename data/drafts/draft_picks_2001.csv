@@ -1,0 +1,247 @@
+season,round,pick,team,gsis_id,pfr_player_id,cfb_player_id,pfr_player_name,hof,position,category,side,college,age,to,allpro,probowls,seasons_started,w_av,car_av,dr_av,games,pass_completions,pass_attempts,pass_yards,pass_tds,pass_ints,rush_atts,rush_yards,rush_tds,receptions,rec_yards,rec_tds,def_solo_tackles,def_ints,def_sacks
+2001,1,1,ATL,00-0020245,VickMi00,michael-vick-1,Michael Vick,false,QB,QB,O,Virginia Tech,21,2015,0,4,7,92,,60,143,1807,3217,22464,133,88,873,6109,36,2,1,0,,,
+2001,1,2,ARI,00-0020533,DaviLe21,leonard-davis-1,Leonard Davis,false,T,OL,O,Texas,23,2012,0,3,10,66,,27,171,0,0,0,0,0,0,0,0,0,0,0,,,
+2001,1,3,CLE,00-0020524,WarrGe20,,Gerard Warren,false,DT,DL,D,Florida,23,2011,0,0,9,49,,25,163,0,0,0,0,0,0,0,0,0,0,0,253,,36.5
+2001,1,4,CIN,00-0020535,SmitJu20,,Justin Smith,false,DE,DL,D,Missouri,21,2014,1,5,14,101,,27,221,0,0,0,0,0,0,0,0,0,0,0,615,3,87.0
+2001,1,5,SDG,00-0020536,TomlLa00,ladainian-tomlinson-1,LaDainian Tomlinson,true,RB,RB,O,TCU,22,2011,3,5,10,129,,121,170,8,12,143,7,0,3174,13684,145,624,4772,17,,,
+2001,1,6,NWE,00-0020442,SeymRi00,,Richard Seymour,true,DE,DL,D,Georgia,21,2012,3,7,11,91,,73,164,0,0,0,0,0,0,0,0,0,0,0,326,2,57.5
+2001,1,7,SFO,00-0020489,CartAn20,andre-carter-1,Andre Carter,false,DE,DL,D,California,22,2013,0,1,10,59,,22,184,0,0,0,0,0,0,0,0,0,0,0,388,,80.5
+2001,1,8,CHI,00-0020513,TerrDa00,david-terrell-1,David Terrell,false,WR,WR,O,Michigan,22,2005,0,0,1,11,,11,54,0,0,0,0,0,4,14,0,128,1602,9,,,
+2001,1,9,SEA,00-0020490,RobiKo00,koren-robinson-1,Koren Robinson,false,WR,WR,O,North Carolina St.,21,2008,0,1,4,35,,30,96,0,0,0,0,0,23,115,1,294,4244,16,1,,
+2001,1,10,GNB,00-0020459,ReynJa20,jamal-reynolds-1,Jamal Reynolds,false,DE,DL,D,Florida St.,22,2003,0,0,0,3,,3,18,0,0,0,0,0,0,0,0,0,0,0,14,,3.0
+2001,1,11,CAR,00-0020443,MorgDa99,dan-morgan-1,Dan Morgan,false,LB,LB,D,Miami (FL),22,2007,0,1,5,30,,30,59,0,0,0,0,0,0,0,0,0,0,0,284,5,7.0
+2001,1,12,STL,00-0020491,LewiDa20,,Damione Lewis,false,DT,DL,D,Miami (FL),23,2010,0,0,3,32,,13,141,0,0,0,0,0,0,0,0,0,0,0,201,,23.5
+2001,1,13,JAX,00-0020492,StroMa01,,Marcus Stroud,false,DT,DL,D,Georgia,23,2010,0,3,9,67,,50,146,0,0,0,0,0,0,0,0,0,0,0,314,,29.5
+2001,1,14,TAM,00-0020493,WalkKe21,,Kenyatta Walker,false,T,OL,O,Florida,22,2006,0,0,5,29,,29,75,0,0,0,0,0,0,0,0,0,0,0,,,
+2001,1,15,WAS,00-0020525,GardRo00,rod-gardner-1,Rod Gardner,false,WR,WR,O,Clemson,23,2006,0,0,4,25,,23,91,2,7,46,2,0,5,24,0,242,3165,23,5,,
+2001,1,16,NYJ,00-0020494,MossSa00,santana-moss-1,Santana Moss,false,WR,WR,O,Miami (FL),22,2014,0,1,9,72,,23,197,0,0,0,0,0,51,287,0,732,10283,66,,,
+2001,1,17,SEA,00-0020466,HutcSt00,steve-hutchinson-1,Steve Hutchinson,true,G,OL,O,Michigan,23,2012,5,7,11,94,,43,169,0,0,0,0,0,0,0,0,0,0,0,,,
+2001,1,18,DET,00-0020444,BackJe20,,Jeff Backus,false,T,OL,O,Michigan,23,2012,0,0,12,61,,61,191,0,0,0,0,0,0,0,0,0,0,0,,,
+2001,1,19,PIT,00-0020426,HampCa00,casey-hampton-1,Casey Hampton,false,NT,DL,D,Texas,24,2012,0,5,11,73,,73,173,0,0,0,0,0,0,0,0,0,0,0,231,,9.0
+2001,1,20,STL,00-0020521,ArchAd20,adam-archuleta-1,Adam Archuleta,false,DB,DB,D,Arizona St.,23,2007,0,0,7,31,,26,103,0,0,0,0,0,0,0,0,0,0,0,453,4,18.0
+2001,1,21,BUF,00-0020495,ClemNa99,nate-clements-1,Nate Clements,false,DB,DB,D,Ohio St.,21,2012,0,1,11,61,,39,180,0,0,0,0,0,0,0,0,0,0,0,669,36,4.5
+2001,1,22,NYG,00-0020467,AlleWi20,will-allen-2,Will Allen,false,DB,DB,D,Syracuse,23,2011,0,0,8,41,,24,140,0,0,0,0,0,0,0,0,0,0,0,460,15,5.0
+2001,1,23,NOR,00-0020527,McAlDe00,deuce-mcallister-1,Deuce McAllister,false,RB,RB,O,Mississippi,22,2008,0,2,4,55,,55,97,1,4,12,1,0,1429,6096,49,234,1720,5,4,,
+2001,1,24,DEN,00-0020496,MiddWi20,willie-middlebrooks-1,Willie Middlebrooks,false,DB,DB,D,Minnesota,22,2005,0,0,0,4,,4,56,0,0,0,0,0,0,0,0,0,0,0,63,,1.0
+2001,1,25,PHI,00-0020497,MitcFr00,freddie-mitchell-1,Freddie Mitchell,false,WR,WR,O,UCLA,22,2004,0,0,1,13,,13,63,1,3,25,1,0,2,-4,0,90,1263,5,4,,
+2001,1,26,MIA,00-0020460,FletJa20,jamar-fletcher-1,Jamar Fletcher,false,DB,DB,D,Wisconsin,22,2008,0,0,0,9,,4,105,0,0,0,0,0,0,0,0,0,0,0,170,7,1.0
+2001,1,27,MIN,00-0020514,BennMi00,michael-bennett-1,Michael Bennett,false,RB,RB,O,Wisconsin,23,2010,0,1,3,34,,29,107,0,0,0,0,0,842,3703,13,159,1294,6,11,,
+2001,1,28,OAK,00-0020418,GibsDe21,derrick-gibson-1,Derrick Gibson,false,DB,DB,D,Florida St.,22,2006,0,0,2,13,,13,69,0,0,0,0,0,0,0,0,0,0,0,161,3,2.0
+2001,1,29,STL,00-0020515,PickRy20,,Ryan Pickett,false,DT,DL,D,Ohio St.,21,2014,0,0,13,58,,22,207,0,0,0,0,0,0,0,0,0,0,0,386,,9.5
+2001,1,30,IND,00-0020498,WaynRe00,reggie-wayne-1,Reggie Wayne,false,WR,WR,O,Miami (FL),22,2014,1,6,13,116,,116,211,0,1,0,0,1,4,0,0,1070,14345,82,,,
+2001,1,31,BAL,00-0020516,HeapTo00,todd-heap-1,Todd Heap,false,TE,TE,O,Arizona St.,21,2012,0,2,8,43,,42,145,0,1,0,0,0,8,61,0,499,5869,42,1,,
+2001,2,32,SDG,00-0020531,BreeDr00,drew-brees-1,Drew Brees,true,QB,QB,O,Purdue,22,2020,1,13,19,167,,27,287,7142,10551,80358,571,243,498,752,25,8,74,1,,,
+2001,2,33,CLE,00-0020427,MorgQu00,quincy-morgan-1,Quincy Morgan,false,WR,WR,O,Kansas St.,23,2006,0,0,4,20,,17,86,0,0,0,0,0,10,53,0,164,2466,17,1,,
+2001,2,34,ARI,00-0020382,VandKy99,,Kyle Vanden Bosch,false,DE,DL,D,Nebraska,22,2012,0,3,9,58,,7,152,0,0,0,0,0,0,0,0,0,0,0,336,,58.0
+2001,2,35,ATL,00-0020285,CrumAl00,alge-crumpler-1,Alge Crumpler,false,TE,TE,O,North Carolina,23,2010,0,4,10,41,,38,155,0,0,0,0,0,0,0,0,373,4743,39,2,,
+2001,2,36,CIN,00-0020397,JohnCh01,chad-johnson-1,Chad Johnson,false,WR,WR,O,Oregon St.,23,2011,2,6,9,85,,84,166,0,1,0,0,0,24,175,0,766,11059,67,,,
+2001,2,37,IND,00-0020468,BashId20,idrees-bashir-1,Idrees Bashir,false,DB,DB,D,Memphis,22,2007,0,0,4,19,,18,71,0,0,0,0,0,0,0,0,0,0,0,181,6,
+2001,2,38,CHI,00-0020403,ThomAn01,anthony-thomas-2,Anthony Thomas,false,RB,RB,O,Michigan,23,2007,0,0,3,27,,22,86,0,0,0,0,0,1044,3891,23,113,756,1,2,,
+2001,2,39,PIT,00-0020317,BellKe20,kendrell-bell-1,Kendrell Bell,false,LB,LB,D,Georgia,23,2007,0,1,5,40,,29,90,0,0,0,0,0,0,0,0,0,0,0,274,1,20.5
+2001,2,40,SEA,00-0020499,LucaKe20,ken-lucas-1,Ken Lucas,false,DB,DB,D,Mississippi,22,2009,0,0,7,46,,20,138,0,0,0,0,0,0,0,0,0,0,0,461,25,
+2001,2,41,GNB,00-0020428,FergRo00,robert-ferguson-1,Robert Ferguson,false,WR,WR,O,Texas A&M,21,2008,0,0,3,18,,15,83,0,0,0,0,0,1,-8,0,151,1993,13,31,,
+2001,2,42,STL,00-0020429,PollTo21,tommy-polley-1,Tommy Polley,false,LB,LB,D,Florida St.,23,2005,0,0,5,30,,23,73,0,0,0,0,0,0,0,0,0,0,0,311,4,6.0
+2001,2,43,JAX,00-0020461,WillMa25,,Maurice Williams,false,T,OL,O,Michigan,22,2009,0,0,6,47,,47,105,0,0,0,0,0,0,0,0,0,0,0,,,
+2001,2,44,CAR,00-0020380,JenkKr00,,Kris Jenkins,false,DT,DL,D,Maryland,22,2010,2,4,6,68,,54,108,0,0,0,0,0,0,0,0,0,0,0,220,,24.0
+2001,2,45,WAS,00-0020522,SmooFr20,fred-smoot-1,Fred Smoot,false,DB,DB,D,Mississippi St.,22,2009,0,0,7,40,,34,129,0,0,0,0,0,0,0,0,0,0,0,390,21,
+2001,2,46,BUF,00-0020469,SchoAa99,aaron-schobel-1,Aaron Schobel,false,DE,DL,D,TCU,24,2009,0,2,8,62,,62,133,0,0,0,0,0,0,0,0,0,0,0,334,3,78.0
+2001,2,47,SFO,00-0020470,WinbJa20,,Jamie Winborn,false,LB,LB,D,Vanderbilt,22,2010,0,0,2,18,,12,100,0,0,0,0,0,0,0,0,0,0,0,281,3,10.0
+2001,2,48,NWE,00-0020543,LighMa20,matt-light-1,Matt Light,false,T,OL,O,Purdue,23,2011,1,3,10,89,,89,155,0,0,0,0,0,0,0,0,0,0,0,,,
+2001,2,49,NYJ,00-0020462,JordLa00,lamont-jordan-1,LaMont Jordan,false,RB,RB,O,Maryland,22,2009,0,0,2,30,,11,114,0,2,0,0,1,897,3734,28,158,1301,3,2,,
+2001,2,50,DET,00-0020445,RaioDo20,dominic-raiola-1,Dominic Raiola,false,C,OL,O,Nebraska,22,2014,0,0,13,64,,64,219,0,0,0,0,0,0,0,0,0,0,0,2,,
+2001,2,51,DEN,,,paul-toviessi-1,Paul Toviessi,false,DE,DL,D,Marshall,,,0,0,0,,,,,,,,,,,,,,,,,,
+2001,2,52,MIA,00-0020446,ChamCh00,chris-chambers-1,Chris Chambers,false,WR,WR,O,Wisconsin,23,2010,0,1,8,58,,41,153,0,0,0,0,0,44,373,0,540,7648,58,2,,
+2001,2,53,DAL,00-0020404,CartQu00,quincy-carter-1,Quincy Carter,false,QB,QB,O,Georgia,23,2004,0,0,2,16,,15,38,542,960,6337,32,37,152,518,3,0,0,0,,,
+2001,2,54,ARI,00-0020383,StonMi20,michael-stone-1,Michael Stone,false,DB,DB,D,Memphis,23,2006,0,0,0,4,,2,52,0,0,0,0,0,0,0,0,0,0,0,62,,
+2001,2,55,PHI,00-0020501,CaveQu20,quinton-caver-1,Quinton Caver,false,LB,LB,D,Arkansas,23,2005,0,0,0,5,,1,53,0,0,0,0,0,0,0,0,0,0,0,56,,
+2001,2,56,DAL,00-0020419,DixoTo20,tony-dixon-2,Tony Dixon,false,DB,DB,D,Alabama,22,2004,0,0,0,9,,9,56,0,0,0,0,0,0,0,0,0,0,0,107,1,6.0
+2001,2,57,MIN,00-0020502,HowaWi20,willie-howard-1,Willie Howard,false,DE,DL,D,Stanford,23,2001,0,0,0,1,,1,8,0,0,0,0,0,0,0,0,0,0,0,10,,
+2001,2,58,BUF,00-0020471,HenrTr00,travis-henry-1,Travis Henry,false,RB,RB,O,Tennessee,22,2007,0,1,4,41,,27,90,0,1,0,0,1,1488,6086,38,141,951,2,1,,
+2001,2,59,OAK,00-0020405,TuiaMa00,marques-tuiasosopo-1,Marques Tuiasosopo,false,QB,QB,O,Washington,22,2008,0,0,0,1,,1,13,49,90,554,2,7,17,79,0,0,0,0,,,
+2001,2,60,TEN,00-0020503,DysoAn20,andre-dyson-1,Andre Dyson,false,DB,DB,D,Utah,22,2007,0,0,5,31,,21,96,0,0,0,0,0,0,0,0,0,0,0,282,22,1.0
+2001,2,61,DET,00-0020528,RogeSh99,,Shaun Rogers,false,DT,DL,D,Texas,22,2013,0,3,8,57,,40,163,0,0,0,0,0,0,0,0,0,0,0,374,1,37.5
+2001,2,62,BAL,00-0020472,BaxtGa20,,Gary Baxter,false,DB,DB,D,Baylor,22,2006,0,0,3,20,,16,62,0,0,0,0,0,0,0,0,0,0,0,252,8,3.0
+2001,3,63,PHI,00-0020504,BurgDe99,derrick-burgess-1,Derrick Burgess,false,DE,DL,D,Mississippi,23,2010,0,2,4,40,,8,102,0,0,0,0,0,0,0,0,0,0,0,215,,52.0
+2001,3,64,ARI,00-0020505,WilsAd99,adrian-wilson-1,Adrian Wilson,false,DB,DB,D,North Carolina St.,21,2012,1,5,11,68,,68,181,0,0,0,0,0,0,0,0,0,0,0,730,27,25.5
+2001,3,65,CLE,00-0020430,JackJa00,james-jackson-1,James Jackson,false,RB,RB,O,Miami (FL),25,2005,0,0,1,9,,9,52,0,0,0,0,0,325,1082,5,32,232,0,4,,
+2001,3,66,CIN,00-0020398,BrewSe20,sean-brewer-1,Sean Brewer,false,TE,TE,O,San Jose St.,23,2003,0,0,0,0,,0,12,0,0,0,0,0,0,0,0,0,0,0,1,,
+2001,3,67,SDG,00-0020447,CodyTa20,tay-cody-1,Tay Cody,false,DB,DB,D,Florida St.,23,2003,0,0,1,4,,4,19,0,0,0,0,0,0,0,0,0,0,0,65,2,
+2001,3,68,CHI,00-0020406,GandMi20,,Mike Gandy,false,T,OL,O,Notre Dame,22,2009,0,0,7,42,,8,108,0,0,0,0,0,0,0,0,0,0,0,,,
+2001,3,69,MIN,00-0020473,KellEr20,eric-kelly-1,Eric Kelly,false,DB,DB,D,Kentucky,24,2003,0,0,2,9,,9,48,0,0,0,0,0,0,0,0,0,0,0,136,3,
+2001,3,70,NOR,00-0020294,HodgSe20,,Sedrick Hodge,false,LB,LB,D,North Carolina,22,2005,0,0,3,17,,17,63,0,0,0,0,0,0,0,0,0,0,0,164,,1.0
+2001,3,71,GNB,00-0020367,JuexBh20,bhawoh-jue-1,Bhawoh Jue,false,DB,DB,D,Penn St.,22,2007,0,0,1,14,,8,79,0,0,0,0,0,0,0,0,0,0,0,144,6,1.5
+2001,3,72,GNB,00-0020431,MarsTo20,torrance-marshall-1,Torrance Marshall,false,LB,LB,D,Oklahoma,24,2004,0,0,0,7,,7,51,0,0,0,0,0,0,0,0,0,0,0,60,,1.0
+2001,3,73,JAX,00-0020357,WestEr20,eric-westmoreland-1,Eric Westmoreland,false,LB,LB,D,Tennessee,24,2004,0,0,0,5,,4,44,0,0,0,0,0,0,0,0,0,0,0,63,,2.0
+2001,3,74,CAR,00-0020337,SmitSt01,steve-smith-3,Steve Smith Sr.,false,WR,WR,O,Utah,22,2016,2,5,14,102,,92,219,0,1,0,0,0,57,387,2,1031,14731,81,,,
+2001,3,75,KAN,00-0020269,DownEr20,,Eric Downing,false,DT,DL,D,Syracuse,22,2004,0,0,1,7,,7,45,0,0,0,0,0,0,0,0,0,0,0,36,,2.0
+2001,3,76,BUF,00-0020286,EdwaRo20,,Ron Edwards,false,DT,DL,D,Texas A&M,22,2012,0,0,6,37,,10,139,0,0,0,0,0,0,0,0,0,0,0,146,,16.5
+2001,3,77,KAN,00-0020272,MinnMa00,snoop-minnis-1,Snoop Minnis,false,WR,WR,O,Florida St.,24,2002,0,0,1,5,,5,15,0,0,0,0,0,0,0,0,34,515,1,,,
+2001,3,78,NYG,00-0020384,PeteWi20,,Will Peterson,false,DB,DB,D,Western Illinois,22,2010,0,0,3,23,,16,97,0,0,0,0,0,0,0,0,0,0,0,75,8,
+2001,3,79,NYJ,00-0020463,McKeKa20,,Kareem McKenzie,false,T,OL,O,Penn St.,22,2011,0,0,10,62,,24,161,0,0,0,0,0,0,0,0,0,0,0,,,
+2001,3,80,SFO,00-0020474,BarlKe00,kevan-barlow-1,Kevan Barlow,false,RB,RB,O,Pittsburgh,22,2006,0,0,2,36,,33,84,0,0,0,0,0,1022,3984,30,144,1164,3,,,
+2001,3,81,NOR,00-0020506,SmitKe23,,Kenny Smith,false,DT,DL,D,Alabama,23,2009,0,0,1,7,,7,36,0,0,0,0,0,0,0,0,0,0,0,58,,4.5
+2001,3,82,SEA,00-0020507,EvanHe00,heath-evans-1,Heath Evans,false,FB,RB,O,Auburn,22,2010,0,0,0,8,,2,143,0,0,0,0,0,164,579,4,57,439,4,23,,
+2001,3,83,STL,00-0020295,AlleBr21,brian-allen-1,Brian Allen,false,LB,LB,D,Florida St.,23,2004,0,0,0,8,,0,47,0,0,0,0,0,0,0,0,0,0,0,74,1,1.0
+2001,3,84,TAM,00-0020385,SmitDw20,dwight-smith-1,Dwight Smith,false,DB,DB,D,Akron,23,2008,0,0,5,34,,18,117,0,0,0,0,0,0,0,0,0,0,0,405,22,2.0
+2001,3,85,MIA,00-0020448,MinoTr00,travis-minor-1,Travis Minor,false,RB,RB,O,Florida St.,22,2008,0,0,0,10,,10,118,0,0,0,0,0,307,1230,8,67,474,1,48,,
+2001,3,86,NWE,00-0020537,WillBr26,brock-williams-1,Brock Williams,false,DB,DB,D,Notre Dame,22,2004,0,0,0,1,,,12,0,0,0,0,0,0,0,0,0,0,0,10,,
+2001,3,87,DEN,00-0020475,HaywRe20,,Reggie Hayward,false,DE,DL,D,Iowa St.,22,2009,0,0,3,32,,13,92,0,0,0,0,0,0,0,0,0,0,0,144,1,39.5
+2001,3,88,MIA,00-0020449,GreeMo20,,Morlon Greenwood,false,LB,LB,D,Syracuse,23,2008,0,0,8,39,,21,125,0,0,0,0,0,0,0,0,0,0,0,471,2,7.0
+2001,3,89,OAK,00-0020432,GranDe20,delawrence-grant-1,DeLawrence Grant,false,DE,DL,D,Oregon St.,21,2005,0,0,2,12,,12,49,0,0,0,0,0,0,0,0,0,0,0,45,,7.0
+2001,3,90,TEN,00-0020476,MeieSh00,shad-meier-1,Shad Meier,false,TE,TE,O,Kansas St.,23,2005,0,0,0,3,,3,53,0,0,0,0,0,0,0,0,42,334,3,2,,
+2001,3,91,IND,00-0020477,BirdCo20,cory-bird-1,Cory Bird,false,DB,DB,D,Virginia Tech,23,2004,0,0,0,6,,6,45,0,0,0,0,0,0,0,0,0,0,0,90,,0.5
+2001,3,92,BAL,00-0020450,RabaCa20,,Casey Rabach,false,C,OL,O,Wisconsin,23,2010,0,0,7,44,,7,137,0,0,0,0,0,0,0,0,0,0,0,,,
+2001,3,93,DAL,00-0020433,BladWi20,,Willie Blade,false,DT,DL,D,Mississippi St.,22,2004,0,0,1,8,,7,20,0,0,0,0,0,0,0,0,0,0,0,17,,1.0
+2001,3,94,JAX,00-0020328,BoydJa20,james-boyd-1,James Boyd,false,DB,DB,D,Penn St.,23,2002,0,0,0,2,,2,26,0,0,0,0,0,0,0,0,0,0,0,11,,
+2001,3,95,BUF,00-0020347,JennJo20,,Jonas Jennings,false,T,OL,O,Georgia,23,2008,0,0,5,29,,21,75,0,0,0,0,0,0,0,0,0,0,0,,,
+2001,4,96,NWE,00-0020386,JoneKe22,,Kenyatta Jones,false,T,OL,O,South Florida,22,2004,0,0,1,7,,6,21,0,0,0,0,0,0,0,0,0,0,0,,,
+2001,4,97,CLE,00-0020329,HenrAn20,anthony-henry-1,Anthony Henry,false,DB,DB,D,South Florida,24,2009,0,0,5,38,,19,132,0,0,0,0,0,0,0,0,0,0,0,429,31,2.0
+2001,4,98,ARI,00-0020296,gramabil01,bill-gramatica-2,Bill Gramatica,false,K,K,S,South Florida,23,2004,0,0,0,7,,7,34,0,0,0,0,0,0,0,0,0,0,0,2,,
+2001,4,99,ATL,00-0020260,GarzRo20,,Roberto Garza,false,G,OL,O,Texas A&M-Kingsville,22,2014,0,0,11,61,,11,206,0,0,0,0,0,0,0,0,0,0,0,,,
+2001,4,100,CIN,00-0020407,JohnRu00,rudi-johnson-1,Rudi Johnson,false,RB,RB,O,Auburn,21,2008,0,1,5,46,,45,95,0,0,0,0,0,1517,5979,49,113,676,2,,,
+2001,4,101,NYJ,00-0020352,HendJa20,jamie-henderson-1,Jamie Henderson,false,DB,DB,D,Georgia,22,2003,0,0,0,3,,3,32,0,0,0,0,0,0,0,0,0,0,0,41,1,
+2001,4,102,ATL,00-0020278,StewMa21,matt-stewart-1,Matt Stewart,false,LB,LB,D,Vanderbilt,22,2006,0,0,4,26,,19,93,0,0,0,0,0,0,0,0,0,0,0,243,1,8.0
+2001,4,103,CHI,00-0020334,RileKa20,karon-riley-1,Karon Riley,false,LB,LB,D,Minnesota,23,2004,0,0,0,1,,0,25,0,0,0,0,0,0,0,0,0,0,0,13,,
+2001,4,104,SEA,00-0020360,HuffOr20,orlando-huff-1,Orlando Huff,false,LB,LB,D,Fresno St.,23,2006,0,0,3,22,,12,87,0,0,0,0,0,0,0,0,0,0,0,222,2,3.0
+2001,4,105,GNB,00-0020353,FerrBi20,,Bill Ferrario,false,G,OL,O,Wisconsin,22,2002,0,0,0,1,,1,16,0,0,0,0,0,0,0,0,0,0,0,,,
+2001,4,106,CAR,00-0020434,WeinCh00,chris-weinke-1,Chris Weinke,false,QB,QB,O,Florida St.,29,2007,0,0,1,9,,9,29,386,709,3904,15,26,54,148,6,0,0,0,,,
+2001,4,107,KAN,00-0020478,BeisMo20,monty-beisel-1,Monty Beisel,false,LB,LB,D,Kansas St.,23,2009,0,0,0,13,,5,119,0,0,0,0,0,0,0,0,0,0,0,200,2,4.5
+2001,4,108,KAN,00-0020479,LaynGe00,george-layne-1,George Layne,false,RB,RB,O,TCU,22,2004,0,0,0,0,,,11,0,0,0,0,0,3,32,0,4,20,0,6,,
+2001,4,109,WAS,00-0020480,RoseSa00,sage-rosenfels-1,Sage Rosenfels,false,QB,QB,O,Iowa St.,23,2010,0,0,0,13,,,44,351,562,4156,30,29,48,95,1,0,0,0,1,,
+2001,4,110,BUF,00-0020323,SpooBr20,,Brandon Spoon,false,LB,LB,D,North Carolina,23,2001,0,0,1,5,,5,14,0,0,0,0,0,0,0,0,0,0,0,45,2,
+2001,4,111,PIT,00-0020261,NkweMa20,,Mathias Nkwenti,false,T,OL,O,Temple,23,2003,0,0,0,0,,0,2,0,0,0,0,0,0,0,0,0,0,0,,,
+2001,4,112,SDG,00-0020339,PolkCa20,carlos-polk-1,Carlos Polk,false,LB,LB,D,Nebraska,24,2008,0,0,0,7,,7,74,0,0,0,0,0,0,0,0,0,0,0,101,,4.0
+2001,4,113,DEN,00-0020368,HamiBe20,ben-hamilton-1,Ben Hamilton,false,G,OL,O,Minnesota,24,2010,0,0,7,54,,52,118,0,0,0,0,0,0,0,0,0,0,0,1,,
+2001,4,114,NYG,00-0020481,ScotCe20,cedric-scott-1,Cedric Scott,false,DE,DL,D,Southern Miss,23,2002,0,0,0,1,,1,13,0,0,0,0,0,0,0,0,0,0,0,4,,
+2001,4,115,NOR,00-0020508,NorrMo00,moran-norris-1,Moran Norris,false,FB,RB,O,Kansas,23,2011,0,0,4,1,,0,140,0,0,0,0,0,28,67,1,38,198,3,19,,
+2001,4,116,STL,00-0020387,WynnMi00,milton-wynn-1,Milton Wynn,false,WR,WR,O,Washington St.,22,2002,0,0,0,1,,,4,0,0,0,0,0,0,0,0,4,69,0,,,
+2001,4,117,TAM,00-0020482,HoweJo21,john-howell-1,John Howell,false,DB,DB,D,Colorado St.,23,2006,0,0,0,7,,6,64,0,0,0,0,0,0,0,0,0,0,0,93,,
+2001,4,118,IND,00-0020399,DiemRy20,,Ryan Diem,false,T,OL,O,Northern Illinois,22,2011,0,0,10,72,,72,157,0,0,0,0,0,0,0,0,0,0,0,3,,
+2001,4,119,NWE,00-0020373,HollJa01,jabari-holloway-1,Jabari Holloway,false,TE,TE,O,Notre Dame,22,2003,0,0,2,1,,,26,0,0,0,0,0,0,0,0,15,157,0,,,
+2001,4,120,DEN,00-0020267,HarrNi20,nick-harris-1,Nick Harris,false,P,P,S,California,23,2012,0,0,0,18,,,183,0,1,0,0,0,2,-7,0,0,0,0,12,,
+2001,4,121,PHI,00-0020270,BuckCo00,correll-buckhalter-1,Correll Buckhalter,false,RB,RB,O,Nebraska,22,2010,0,0,0,27,,21,103,0,0,0,0,0,655,2944,21,144,1410,6,9,,
+2001,4,122,DAL,00-0020408,SteeMa20,,Markus Steele,false,LB,LB,D,USC,22,2003,0,0,1,8,,8,42,0,0,0,0,0,0,0,0,0,0,0,73,,
+2001,4,123,ARI,00-0020297,BellMa20,marcus-bell-1,Marcus Bell,false,DT,DL,D,Memphis,22,2006,0,0,2,14,,8,86,0,0,0,0,0,0,0,0,0,0,0,131,,6.5
+2001,4,124,TEN,00-0020381,McCaJu00,justin-mccareins-1,Justin McCareins,false,WR,WR,O,Northern Illinois,22,2008,0,0,5,33,,16,114,0,0,0,0,0,8,42,0,240,3676,16,10,,
+2001,4,125,NYG,00-0020483,PalmJe00,jesse-palmer-1,Jesse Palmer,false,QB,QB,O,Florida,22,2003,0,0,0,1,,1,8,63,120,562,3,4,5,20,0,0,0,0,,,
+2001,4,126,BAL,00-0020304,HartEd20,,Ed Hartwell,false,LB,LB,D,Western Illinois,23,2006,0,0,3,28,,24,77,0,0,0,0,0,0,0,0,0,0,0,280,1,7.0
+2001,4,127,SEA,00-0020314,FullCu20,curtis-fuller-1,Curtis Fuller,false,DB,DB,D,TCU,23,2004,0,0,0,3,,2,42,0,0,0,0,0,0,0,0,0,0,0,41,1,
+2001,4,128,SEA,00-0020348,WomaFl20,,Floyd Womack,false,T,OL,O,Mississippi St.,22,2010,0,0,5,30,,22,120,0,0,0,0,0,0,0,0,0,0,0,1,,
+2001,4,129,STL,00-0020342,ManuBr00,brandon-manumaleuna-1,Brandon Manumaleuna,false,TE,TE,O,Arizona,21,2010,0,0,7,8,,6,158,0,0,0,0,0,6,18,0,115,1008,13,1,,
+2001,4,130,MIN,00-0020517,WortSh20,,Shawn Worthen,false,DT,DL,D,TCU,25,2001,0,0,0,0,,0,4,0,0,0,0,0,0,0,0,0,0,0,3,,
+2001,4,131,MIN,00-0020484,JameCe00,cedric-james-1,Cedric James,false,WR,WR,O,TCU,22,2002,0,0,0,0,,0,5,0,0,0,0,0,0,0,0,1,29,0,1,,
+2001,5,132,SDG,,,,Elliot Silvers,false,T,OL,O,Washington,,,0,0,0,,,,,,,,,,,,,,,,,,
+2001,5,133,ARI,00-0020307,FataMa20,,Mario Fatafehi,false,DT,DL,D,Kansas St.,22,2004,0,0,2,13,,1,45,0,0,0,0,0,0,0,0,0,0,0,43,,5.0
+2001,5,134,CLE,,,jeremiah-pharms-1,Jeremiah Pharms,false,LB,LB,D,Washington,,,0,0,0,,,,,,,,,,,,,,,,,,
+2001,5,135,CIN,00-0020374,LeyvVi20,victor-leyva-1,Victor Leyva,false,G,OL,O,Arizona St.,23,2002,0,0,0,1,,1,10,0,0,0,0,0,0,0,0,0,0,0,,,
+2001,5,136,ATL,00-0020273,SuthVi00,vinny-sutherland-1,Vinny Sutherland,false,WR,WR,O,Purdue,23,2002,0,0,0,0,,,16,0,0,0,0,0,1,16,0,1,5,0,1,,
+2001,5,137,DAL,00-0020420,LehrMa20,,Matt Lehr,false,C,OL,O,Virginia Tech,22,2008,0,0,3,23,,9,98,0,0,0,0,0,0,0,0,0,0,0,2,,
+2001,5,138,CHI,00-0020388,RobeBe20,,Bernard Robertson,false,T,OL,O,Tulane,22,2002,0,0,0,3,,3,16,0,0,0,0,0,0,0,0,0,0,0,,,
+2001,5,139,SDG,00-0020400,MoreZe20,zeke-moreno-1,Zeke Moreno,false,LB,LB,D,USC,22,2005,0,0,1,10,,10,61,0,0,0,0,0,0,0,0,0,0,0,139,1,3.0
+2001,5,140,SEA,00-0020361,BannAl00,,Alex Bannister,false,WR,WR,O,Eastern Kentucky,22,2006,0,1,0,1,,1,59,0,0,0,0,0,0,0,0,9,121,1,45,,
+2001,5,141,KAN,,BabeBi00,billy-baber-1,Bill Baber,false,TE,TE,O,Virginia,22,2004,0,0,0,0,,0,30,0,0,0,0,0,0,0,0,4,37,1,,,
+2001,5,142,JAX,,,david-leaverton-1,David Leaverton,false,P,P,S,Tennessee,,,0,0,0,,,,,,,,,,,,,,,,,,
+2001,5,143,CAR,00-0020409,CoopJa20,,Jarrod Cooper,false,DB,DB,D,Kansas St.,23,2007,0,0,1,7,,2,87,0,0,0,0,0,0,0,0,0,0,0,114,,1.5
+2001,5,144,BUF,00-0020318,SullMa20,,Marques Sullivan,false,G,OL,O,Illinois,23,2003,0,0,1,11,,11,32,0,0,0,0,0,0,0,0,0,0,0,,,
+2001,5,145,STL,00-0020354,ButlJe20,jerametrius-butler-1,Jerametrius Butler,false,DB,DB,D,Kansas St.,22,2007,0,0,2,17,,16,71,0,0,0,0,0,0,0,0,0,0,0,186,9,
+2001,5,146,PIT,00-0020255,OkobCh20,chukky-okobi-1,Chukky Okobi,false,C,OL,O,Purdue,22,2007,0,0,0,7,,7,78,0,0,0,0,0,0,0,0,0,0,0,,,
+2001,5,147,PHI,00-0020268,StewTo00,tony-stewart-1,Tony Stewart,false,TE,TE,O,Penn St.,22,2009,0,0,1,5,,0,115,0,0,0,0,0,0,0,0,76,623,3,43,,
+2001,5,148,DET,00-0020370,AndeSc00,,Scotty Anderson,false,WR,WR,O,Grambling St.,21,2003,0,0,0,8,,8,34,0,0,0,0,0,0,0,0,54,858,4,,,
+2001,5,149,DET,00-0020308,McMaMi00,mike-mcmahon-1,Mike McMahon,false,QB,QB,O,Rutgers,22,2005,0,0,0,6,,5,29,229,515,2867,15,21,82,409,7,1,7,0,,,
+2001,5,150,KAN,00-0020315,BlayDe00,,Derrick Blaylock,false,RB,RB,O,S.F. Austin,22,2006,0,0,0,11,,10,51,0,0,0,0,0,198,820,10,53,520,2,19,,
+2001,5,151,TAM,00-0020389,HochRu20,,Russ Hochstein,false,C,OL,O,Nebraska,23,2012,0,0,1,27,,0,149,0,0,0,0,0,0,0,0,0,0,0,1,,
+2001,5,152,IND,00-0020324,WallRa20,raymond-walls-1,Raymond Walls,false,DB,DB,D,Southern Miss,22,2005,0,0,0,4,,0,41,0,0,0,0,0,0,0,0,0,0,0,40,1,
+2001,5,153,NOR,,,,Onomo Ojo,false,WR,WR,O,UC Davis,,,0,0,0,,,,,,,,,,,,,,,,,,
+2001,5,154,WAS,00-0020464,McCaDa00,,Darnerien McCants,false,WR,WR,O,Delaware St.,24,2005,0,0,0,7,,6,41,0,0,0,0,0,1,9,0,58,774,8,4,,
+2001,5,155,PHI,00-0020305,FeelA.00,aj-feeley-1,A.J. Feeley,false,QB,QB,O,Oregon,24,2011,0,0,1,7,,6,28,425,762,4618,28,31,37,49,1,0,0,0,,,
+2001,5,156,MIA,,,shawn-draper-1,Shawn Draper,false,T,OL,O,Alabama,,,0,0,0,,,,,,,,,,,,,,,,,,
+2001,5,157,MIN,00-0020451,ChukPa20,patrick-chukwurah-1,Patrick Chukwurah,false,LB,LB,D,Wyoming,22,2007,0,0,0,6,,3,78,0,0,0,0,0,0,0,0,0,0,0,62,,9.0
+2001,5,158,OAK,00-0020421,PerrRa21,,Ray Perryman,false,DB,DB,D,Northern Arizona,22,2004,0,0,0,0,,,10,0,0,0,0,0,0,0,0,0,0,0,,,
+2001,5,159,TEN,00-0020485,BerlEd00,,Eddie Berlin,false,WR,WR,O,Northern Iowa,23,2005,0,0,0,3,,3,62,0,0,0,0,0,0,0,0,26,379,2,27,,
+2001,5,160,NYG,,,john-markham-1,John Markham,false,K,K,S,Vanderbilt,,,0,0,0,,,,,,,,,,,,,,,,,,
+2001,5,161,BAL,,,chris-barnes-1,Chris Barnes,false,RB,RB,O,New Mexico St.,,,0,0,0,,,,,,,,,,,,,,,,,,
+2001,5,162,NYG,00-0020343,CartJo01,,Jonathan Carter,false,WR,WR,O,Troy,22,2004,0,0,0,4,,0,25,0,0,0,0,0,0,0,0,14,266,2,,,
+2001,5,163,NWE,00-0020330,AkbaHa20,hakim-akbar-1,Hakim Akbar,false,LB,LB,D,Washington,21,2002,0,0,0,1,,1,10,0,0,0,0,0,0,0,0,0,0,0,2,,
+2001,6,164,MIA,00-0020331,WineBr20,,Brandon Winey,false,T,OL,O,LSU,23,2004,0,0,0,3,,,24,0,0,0,0,0,0,0,0,0,0,0,,,
+2001,6,165,CLE,00-0020275,JameMi20,michael-jameson-1,Michael Jameson,false,DB,DB,D,Texas A&M,22,2004,0,0,0,4,,4,42,0,0,0,0,0,0,0,0,0,0,0,36,1,1.0
+2001,6,166,ARI,,,bobby-newcombe-1,Bobby Newcombe,false,WR,WR,O,Nebraska,,,0,0,0,,,,,,,,,,,,,,,,,,
+2001,6,167,ATL,,,,Randy Garner,false,DE,DL,D,Arkansas,,,0,0,0,,,,,,,,,,,,,,,,,,
+2001,6,168,CIN,00-0020375,JohnRi20,,Riall Johnson,false,LB,LB,D,Stanford,23,2003,0,0,0,2,,2,32,0,0,0,0,0,0,0,0,0,0,0,18,,
+2001,6,169,SFO,00-0020452,WilsCe00,cedrick-wilson-1,Cedrick Wilson,false,WR,WR,O,Tennessee,22,2007,0,0,2,22,,11,100,2,2,27,0,0,7,53,0,178,2365,8,2,,
+2001,6,170,JAX,,,,Chad Ward,false,G,OL,O,Washington,,,0,0,0,,,,,,,,,,,,,,,,,,
+2001,6,171,DAL,00-0020538,StewDa20,,Daleroy Stewart,false,DT,DL,D,Southern Miss,22,2004,0,0,0,3,,2,26,0,0,0,0,0,0,0,0,0,0,0,19,,1.5
+2001,6,172,SEA,,,josh-booty-1,Josh Booty,false,QB,QB,O,LSU,,,0,0,0,,,,,,,,,,,,,,,,,,
+2001,6,173,DET,00-0020401,GlenJa20,jason-glenn-1,Jason Glenn,false,LB,LB,D,Texas A&M,22,2006,0,0,0,6,,,80,0,0,0,0,0,0,0,0,0,0,0,92,,
+2001,6,174,TAM,00-0020391,CookJa00,jameel-cook-1,Jameel Cook,false,FB,RB,O,Illinois,22,2008,0,0,2,4,,2,109,0,0,0,0,0,14,43,0,84,510,3,35,,
+2001,6,175,CAR,00-0020376,BrowDe02,dee-brown-2,Dee Brown,false,RB,RB,O,Syracuse,23,2006,0,0,0,2,,2,43,0,1,0,0,1,119,405,4,21,114,2,15,,
+2001,6,176,KAN,00-0020453,SulfAl20,,Alex Sulfsted,false,T,OL,O,Miami (OH),23,2004,0,0,0,2,,,18,0,0,0,0,0,0,0,0,0,0,0,,,
+2001,6,177,MIA,,,josh-heupel-1,Josh Heupel,false,QB,QB,O,Oklahoma,,,0,0,0,,,,,,,,,,,,,,,,,,
+2001,6,178,BUF,00-0020336,DrivTo20,tony-driver-1,Tony Driver,false,DB,DB,D,Notre Dame,24,2002,0,0,0,0,,0,11,0,0,0,0,0,0,0,0,0,0,0,4,,
+2001,6,179,SFO,00-0020454,HolmRa20,rashad-holman-1,Rashad Holman,false,DB,DB,D,Louisville,23,2003,0,0,0,4,,4,46,0,0,0,0,0,0,0,0,0,0,0,89,2,
+2001,6,180,NWE,,,,Arther Love,false,TE,TE,O,South Carolina St.,,,0,0,0,,,,,,,,,,,,,,,,,,
+2001,6,181,PIT,00-0020299,BailRo21,,Rodney Bailey,false,DE,DL,D,Ohio St.,21,2007,0,0,0,7,,6,84,0,0,0,0,0,0,0,0,0,0,0,65,,9.5
+2001,6,182,PIT,00-0020306,KnigRo20,,Roger Knight,false,LB,LB,D,Wisconsin,22,2004,0,0,0,4,,,48,0,0,0,0,0,0,0,0,0,0,0,53,,
+2001,6,183,TAM,00-0020392,WymsEl20,ellis-wyms-1,Ellis Wyms,false,DE,DL,D,Mississippi St.,22,2008,0,0,1,13,,11,95,0,0,0,0,0,0,0,0,0,0,0,106,,19.0
+2001,6,184,OAK,00-0020422,CoopCh20,,Chris Cooper,false,DT,DL,D,Nebraska-Omaha,24,2007,0,0,1,12,,10,78,0,0,0,0,0,0,0,0,0,0,0,103,1,8.5
+2001,6,185,NOR,,,,Mitch White,false,T,OL,O,Oregon St.,,,0,0,0,,,,,,,,,,,,,,,,,,
+2001,6,186,WAS,00-0020319,MondMa20,,Mario Monds,false,DT,DL,D,Cincinnati,24,2004,0,0,0,1,,,7,0,0,0,0,0,0,0,0,0,0,0,4,,
+2001,6,187,MIA,00-0020372,LeveOt20,,Otis Leverette,false,DE,DL,D,Ala-Birmingham,23,2004,0,0,0,3,,,17,0,0,0,0,0,0,0,0,0,0,0,25,1,2.0
+2001,6,188,MIA,,,rick-crowell-1,Rick Crowell,false,LB,LB,D,Colorado St.,,,0,0,0,,,,,,,,,,,,,,,,,,
+2001,6,189,MIN,00-0020518,ScotCa20,,Carey Scott,false,DB,DB,D,Kentucky St.,23,2003,0,0,0,0,,0,7,0,0,0,0,0,0,0,0,0,0,0,2,,
+2001,6,190,DEN,00-0020256,KaspKe00,kevin-kasper-1,Kevin Kasper,false,WR,WR,O,Iowa,23,2006,0,0,0,2,,1,39,0,0,0,0,0,7,34,0,24,287,3,10,,
+2001,6,191,SFO,,,,Menson Holloway,false,DE,DL,D,Texas-El Paso,,,0,0,0,,,,,,,,,,,,,,,,,,
+2001,6,192,TEN,00-0020487,AlexDa21,dan-alexander-1,Dan Alexander,false,RB,RB,O,Nebraska,23,2003,0,0,0,0,,0,11,0,0,0,0,0,0,0,0,0,0,0,3,,
+2001,6,193,IND,00-0020310,DoerJa20,jason-doering-1,Jason Doering,false,DB,DB,D,Wisconsin,23,2004,0,0,0,6,,5,53,0,0,0,0,0,0,0,0,0,0,0,78,,
+2001,6,194,BAL,00-0020325,MaesJo20,,Joe Maese,false,C,OL,O,New Mexico,22,2005,0,0,0,7,,7,65,0,0,0,0,0,0,0,0,0,0,0,5,,
+2001,6,195,BUF,00-0020326,OLeaDa20,dan-oleary-1,Dan O'Leary,false,TE,TE,O,Notre Dame,24,2002,0,0,0,0,,0,17,0,0,0,0,0,0,0,0,0,0,0,2,,
+2001,6,196,BUF,00-0020327,WillJi22,jimmy-williams-1,Jimmy Williams,false,DB,DB,D,Vanderbilt,22,2006,0,0,0,9,,,80,0,0,0,0,0,0,0,0,0,0,0,124,3,1.0
+2001,6,197,STL,,,,Francis St. Paul,false,WR,WR,O,Northern Arizona,,,0,0,0,,,,,,,,,,,,,,,,,,
+2001,6,198,GNB,00-0020332,MartDa00,david-martin-2,David Martin,false,TE,TE,O,Tennessee,22,2011,0,0,4,12,,6,120,0,0,0,0,0,0,0,0,159,1562,15,14,,
+2001,6,199,TEN,00-0020378,HaayAd20,,Adam Haayer,false,T,OL,O,Minnesota,24,2005,0,0,0,4,,,20,0,0,0,0,0,0,0,0,0,0,0,,,
+2001,6,200,NWE,00-0020359,MyerLe20,leonard-myers-1,Leonard Myers,false,DB,DB,D,Miami (FL),22,2003,0,0,0,1,,1,17,0,0,0,0,0,0,0,0,0,0,0,22,,
+2001,7,201,SDG,00-0020344,GoriBr20,,Brandon Gorin,false,T,OL,O,Purdue,23,2009,0,0,2,15,,,48,0,0,0,0,0,0,0,0,0,0,0,,,
+2001,7,202,ARI,00-0020301,HillRe20,renaldo-hill-1,Renaldo Hill,false,DB,DB,D,Michigan St.,22,2010,0,0,8,36,,13,141,0,0,0,0,0,0,0,0,0,0,0,497,19,6.5
+2001,7,203,CLE,00-0020437,ZukaPa20,paul-zukauskas-1,Paul Zukauskas,false,G,OL,O,Boston Col.,22,2004,0,0,1,9,,9,43,0,0,0,0,0,0,0,0,0,0,0,,,
+2001,7,204,CIN,00-0020438,HousTJ00,tj-houshmandzadeh-1,T.J. Houshmandzadeh,false,WR,WR,O,Oregon St.,23,2011,0,1,6,56,,48,146,0,0,0,0,0,23,142,1,627,7237,44,1,,
+2001,7,205,TAM,,,dauntae-finger-1,Dauntae' Finger,false,TE,TE,O,North Carolina,,,0,0,0,,,,,,,,,,,,,,,,,,
+2001,7,206,NYJ,00-0020355,ReedJa21,,James Reed,false,DT,DL,D,Iowa St.,24,2007,0,0,2,19,,12,99,0,0,0,0,0,0,0,0,0,0,0,162,,7.0
+2001,7,207,DAL,00-0020411,WeatCo20,,Colston Weatherington,false,DE,DL,D,Central Missouri St.,23,2002,0,0,0,0,,0,3,0,0,0,0,0,0,0,0,0,0,0,1,,
+2001,7,208,CHI,,,,John Capel,false,WR,WR,O,Florida,,,0,0,0,,,,,,,,,,,,,,,,,,
+2001,7,209,SFO,,,alex-lincoln-1,Alex Lincoln,false,LB,LB,D,Auburn,,,0,0,0,,,,,,,,,,,,,,,,,,
+2001,7,210,SEA,00-0020371,BlacHa20,harold-blackmon-1,Harold Blackmon,false,DB,DB,D,Northwestern,23,2002,0,0,0,1,,1,9,0,0,0,0,0,0,0,0,0,0,0,1,,
+2001,7,211,CAR,00-0020393,WillLo20,,Louis Williams,false,C,OL,O,LSU,22,2002,0,0,0,0,,0,2,0,0,0,0,0,0,0,0,0,0,0,,,
+2001,7,212,KAN,00-0020358,HartSh20,shaunard-harts-2,Shaunard Harts,false,DB,DB,D,Boise St.,23,2004,0,0,1,8,,8,51,0,0,0,0,0,0,0,0,0,0,0,146,2,2.0
+2001,7,213,JAX,00-0020350,DenmAn20,,Anthony Denman,false,LB,LB,D,Notre Dame,21,2002,0,0,0,2,,,27,0,0,0,0,0,0,0,0,0,0,0,19,,
+2001,7,214,BUF,00-0020320,GermRe00,reggie-germany-1,Reggie Germany,false,WR,WR,O,Ohio St.,23,2001,0,0,0,2,,2,16,0,0,0,0,0,0,0,0,12,203,0,4,,
+2001,7,215,ATL,00-0020338,HallCo20,,Corey Hall,false,DB,DB,D,Appalachian St.,22,2001,0,0,0,0,,0,3,0,0,0,0,0,0,0,0,0,0,0,,,
+2001,7,216,NWE,00-0020379,pochmowe01,owen-pochman-1,Owen Pochman,false,K,K,S,BYU,24,2003,0,0,0,-2,,,16,0,0,0,0,0,0,0,0,0,0,0,1,,
+2001,7,217,NYJ,00-0020349,PekoTu20,,Tupe Peko,false,G,OL,O,Michigan St.,22,2004,0,0,0,9,,,27,0,0,0,0,0,0,0,0,0,0,0,,,
+2001,7,218,PIT,,TaylCh04,chris-taylor-2,Chris Taylor,false,WR,WR,O,Texas A&M,22,,0,0,0,,,,,,,,,,,,,,,,,,
+2001,7,219,ATL,00-0020262,FornKy20,,Kynan Forney,false,G,OL,O,Hawaii,22,2009,0,0,5,37,,37,98,0,0,0,0,0,0,0,0,0,0,0,1,,
+2001,7,220,IND,00-0020333,DeMuRi20,,Rick DeMulling,false,G,OL,O,Idaho,24,2007,0,0,3,31,,26,81,0,0,0,0,0,0,0,0,0,0,0,,,
+2001,7,221,NOR,,,,Ennis Davis,false,DT,DL,D,USC,,,0,0,0,,,,,,,,,,,,,,,,,,
+2001,7,222,SEA,00-0020369,NormDe20,,Dennis Norman,false,C,OL,O,Princeton,21,2009,0,0,1,17,,0,74,0,0,0,0,0,0,0,0,0,0,0,,,
+2001,7,223,TAM,00-0020394,MerrTh20,,Than Merrill,false,DB,DB,D,Yale,23,2001,0,0,0,1,,,15,0,0,0,0,0,0,0,0,0,0,0,7,,
+2001,7,224,SFO,00-0020455,JohnEr00,,Eric Johnson,false,TE,TE,O,Yale,21,2007,0,0,5,19,,17,71,0,0,0,0,0,0,0,0,240,2178,9,,,
+2001,7,225,MIN,,,,Brian Crawford,false,T,OL,O,Western Oregon,,,0,0,0,,,,,,,,,,,,,,,,,,
+2001,7,226,ATL,00-0020263,FlemRo20,,Ronald Flemons,false,DE,DL,D,Texas A&M,21,2004,0,0,0,0,,0,6,0,0,0,0,0,0,0,0,0,0,0,1,,0.5
+2001,7,227,CAR,00-0020345,RobeMi00,mike-roberg-1,Mike Roberg,false,TE,TE,O,Idaho,23,2002,0,0,0,0,,,13,0,0,0,0,0,0,0,0,2,17,1,1,,
+2001,7,228,OAK,00-0020424,CombDe20,derek-combs-1,Derek Combs,false,DB,DB,D,Ohio St.,22,2003,0,0,0,1,,0,12,0,0,0,0,0,0,0,0,0,0,0,8,,
+2001,7,229,OAK,00-0020425,RambKe00,ken-yon-rambo-1,Ken-Yon Rambo,false,WR,WR,O,Ohio St.,22,2002,0,0,0,1,,,29,0,0,0,0,0,0,0,0,17,239,0,2,,
+2001,7,230,NYG,00-0020412,KoloRo20,ross-kolodziej-1,Ross Kolodziej,false,DT,DL,D,Wisconsin,23,2007,0,0,1,12,,1,54,0,0,0,0,0,0,0,0,0,0,0,45,,4.0
+2001,7,231,BAL,00-0020456,MissDw20,missouri-1,Dwayne Missouri,false,DE,DL,D,Northwestern,22,2001,0,0,0,0,,,2,0,0,0,0,0,0,0,0,0,0,0,,,
+2001,7,232,TEN,00-0020488,AdamKe20,keith-adams-1,Keith Adams,false,LB,LB,D,Clemson,21,2007,0,0,1,14,,,85,0,0,0,0,0,0,0,0,0,0,0,147,,
+2001,7,233,JAX,00-0020280,McCrMa20,marlon-mccree-1,Marlon McCree,false,DB,DB,D,Kentucky,24,2008,0,0,7,35,,13,114,0,0,0,0,0,0,0,0,0,0,0,349,16,3.0
+2001,7,234,TAM,00-0020402,TafoJo20,,Joe Tafoya,false,DE,DL,D,Arizona,23,2007,0,0,0,10,,,76,0,0,0,0,0,0,0,0,0,0,0,83,,3.5
+2001,7,235,JAX,,,,Richmond Flowers III,false,WR,WR,O,Chattanooga,,,0,0,0,,,,,,,,,,,,,,,,,,
+2001,7,236,ATL,00-0020340,McCoQu00,quentin-mccord-1,Quentin McCord,false,WR,WR,O,Kentucky,23,2003,0,0,0,5,,5,25,0,0,0,0,0,4,13,0,23,427,1,4,,
+2001,7,237,SEA,00-0020346,KocuKr20,,Kris Kocurek,false,DT,DL,D,Texas Tech,22,2001,0,0,0,0,,,1,0,0,0,0,0,0,0,0,0,0,0,,,
+2001,7,238,BUF,00-0020316,RobeTy20,,Tyrone Robertson,false,DT,DL,D,Hinds CC,22,2001,0,0,0,1,,1,12,0,0,0,0,0,0,0,0,0,0,0,19,,2.0
+2001,7,239,NWE,00-0020362,TurnT.21,,T.J. Turner,false,LB,LB,D,Michigan St.,22,2001,0,0,0,0,,0,2,0,0,0,0,0,0,0,0,0,0,0,1,,
+2001,7,240,DAL,00-0020413,NixxJo20,,John Nix,false,DT,DL,D,Southern Miss,24,2004,0,0,0,2,,2,31,0,0,0,0,0,0,0,0,0,0,0,17,,
+2001,7,241,JAX,00-0020312,ChevRa20,,Randy Chevrier,false,DT,DL,D,McGill,25,2001,0,0,0,0,,,13,0,0,0,0,0,0,0,0,0,0,0,1,,
+2001,7,242,DAL,00-0020396,DorsCh20,,Char-ron Dorsey,false,T,OL,O,Florida St.,23,2002,0,0,0,1,,1,12,0,0,0,0,0,0,0,0,0,0,0,,,
+2001,7,243,KAN,00-0020414,SandTe20,,Terdell Sands,false,DT,DL,D,Chattanooga,21,2009,0,0,1,11,,,77,0,0,0,0,0,0,0,0,0,0,0,96,1,4.0
+2001,7,244,SDG,00-0020341,CarsRo20,robert-carswell-1,Robert Carswell,false,DB,DB,D,Clemson,22,2002,0,0,0,1,,1,18,0,0,0,0,0,0,0,0,0,0,0,14,,
+2001,7,245,CLE,00-0020415,KingAn00,andre-king-1,Andre King,false,WR,WR,O,Miami (FL),27,2004,0,0,0,2,,2,42,0,0,0,0,0,0,0,0,30,327,0,4,,
+2001,7,246,ARI,,,tevita-ofahengaue-1,Tevita Ofahengaue,false,TE,TE,O,BYU,,,0,0,0,,,,,,,,,,,,,,,,,,

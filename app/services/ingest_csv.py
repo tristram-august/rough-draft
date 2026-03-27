@@ -1,16 +1,21 @@
 from __future__ import annotations
 
+import csv
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import pandas as pd
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import DraftPick, Player, PlayerCareerSummary, Team
+from app.models import DraftPick, Player, Team
+
+# If you already added PlayerCareerSummary, keep this import.
+# If you do NOT have it yet, comment out the next line and the related code block.
+from app.models import PlayerCareerSummary  # type: ignore
+
 
 TEAM_ABBREV_NORMALIZE: dict[str, str] = {
-    # common historical / provider abbreviations -> modern canonical
     "NWE": "NE",
     "GNB": "GB",
     "KAN": "KC",
@@ -21,7 +26,7 @@ TEAM_ABBREV_NORMALIZE: dict[str, str] = {
     "STL": "LAR",
     "OAK": "LV",
     "RAI": "LV",
-    "LVR": "LV",  # observed in your 2025 file
+    "LVR": "LV",
     "JAC": "JAX",
     "WSH": "WAS",
 }
@@ -61,42 +66,7 @@ TEAM_META: dict[str, dict[str, str | None]] = {
     "WAS": {"city": "Washington", "name": "Commanders", "conference": "NFC", "division": "East"},
 }
 
-REQUIRED_COLS = {
-    "season",
-    "round",
-    "pick",  # overall pick number in your files
-    "team",
-    "pfr_player_name",
-    "position",
-}
-
-CAREER_COLS = [
-    "gsis_id",
-    "pfr_player_id",
-    "cfb_player_id",
-    "hof",
-    "allpro",
-    "probowls",
-    "seasons_started",
-    "w_av",
-    "car_av",
-    "dr_av",
-    "games",
-    "pass_completions",
-    "pass_attempts",
-    "pass_yards",
-    "pass_tds",
-    "pass_ints",
-    "rush_atts",
-    "rush_yards",
-    "rush_tds",
-    "receptions",
-    "rec_yards",
-    "rec_tds",
-    "def_solo_tackles",
-    "def_ints",
-    "def_sacks",
-]
+REQUIRED_COLS = {"season", "round", "pick", "team", "pfr_player_name", "position"}
 
 
 def normalize_team_abbrev(raw: str) -> str:
@@ -104,28 +74,37 @@ def normalize_team_abbrev(raw: str) -> str:
     return TEAM_ABBREV_NORMALIZE.get(raw, raw)
 
 
-def _as_int(v: Any) -> int | None:
-    if pd.isna(v):
-        return None
-    try:
-        return int(float(v))
-    except Exception:
-        return None
-
-
-def _as_float(v: Any) -> float | None:
-    if pd.isna(v):
-        return None
-    try:
-        return float(v)
-    except Exception:
-        return None
-
-
-def _as_bool01(v: Any) -> bool | None:
-    if pd.isna(v):
+def _s(v: Any) -> str | None:
+    if v is None:
         return None
     s = str(v).strip()
+    return s if s else None
+
+
+def _i(v: Any) -> int | None:
+    s = _s(v)
+    if s is None:
+        return None
+    try:
+        return int(float(s))
+    except Exception:
+        return None
+
+
+def _f(v: Any) -> float | None:
+    s = _s(v)
+    if s is None:
+        return None
+    try:
+        return float(s)
+    except Exception:
+        return None
+
+
+def _b01(v: Any) -> bool | None:
+    s = _s(v)
+    if s is None:
+        return None
     if s in {"0", "0.0"}:
         return False
     if s in {"1", "1.0"}:
@@ -161,25 +140,10 @@ async def upsert_team(session: AsyncSession, *, abbrev: str) -> Team:
     return team
 
 
-async def upsert_player_from_row(session: AsyncSession, row: dict[str, Any]) -> Player:
-    full_name = str(row.get("pfr_player_name") or "").strip()
-    position = str(row.get("position") or "").strip().upper()
-    college = row.get("college")
-    college = None if pd.isna(college) else str(college)
-
-    # best-effort identity: pfr_player_id if present, else (name, position)
-    pfr_id_raw = row.get("pfr_player_id")
-    pfr_id = None if pd.isna(pfr_id_raw) else str(pfr_id_raw).strip()
-
-    if pfr_id:
-        # your Player model doesn't have pfr_id; keep matching stable-ish for now.
-        stmt = select(Player).where(Player.full_name == full_name, Player.position == position)
-    else:
-        stmt = select(Player).where(Player.full_name == full_name, Player.position == position)
-
+async def upsert_player(session: AsyncSession, *, full_name: str, position: str, college: str | None) -> Player:
+    stmt = select(Player).where(Player.full_name == full_name, Player.position == position)
     res = await session.execute(stmt)
     player = res.scalars().first()
-
     if player:
         player.college = college or player.college
         return player
@@ -232,100 +196,118 @@ async def upsert_pick(
     return pick
 
 
-async def upsert_career_summary(session: AsyncSession, *, player_id: int, row: dict[str, Any]) -> None:
+async def upsert_career_summary_if_available(session: AsyncSession, *, player_id: int, row: dict[str, Any]) -> None:
+    """
+    Optional: only works if you created PlayerCareerSummary model/table.
+    If you haven't added that model yet, comment out its import and calls.
+    """
     res = await session.execute(select(PlayerCareerSummary).where(PlayerCareerSummary.player_id == player_id))
     cs = res.scalars().first()
     if not cs:
         cs = PlayerCareerSummary(player_id=player_id)
         session.add(cs)
 
-    cs.gsis_id = None if pd.isna(row.get("gsis_id")) else str(row.get("gsis_id")).strip()
-    cs.pfr_player_id = None if pd.isna(row.get("pfr_player_id")) else str(row.get("pfr_player_id")).strip()
-    cs.cfb_player_id = _as_int(row.get("cfb_player_id"))
+    # ids
+    cs.gsis_id = _s(row.get("gsis_id"))
+    cs.pfr_player_id = _s(row.get("pfr_player_id"))
+    cs.cfb_player_id = _i(row.get("cfb_player_id"))
 
-    cs.hof = _as_bool01(row.get("hof"))
-    cs.allpro = _as_int(row.get("allpro"))
-    cs.probowls = _as_int(row.get("probowls"))
-    cs.seasons_started = _as_int(row.get("seasons_started"))
+    # flags / accolades
+    cs.hof = _b01(row.get("hof"))
+    cs.allpro = _i(row.get("allpro"))
+    cs.probowls = _i(row.get("probowls"))
+    cs.seasons_started = _i(row.get("seasons_started"))
 
-    cs.w_av = _as_float(row.get("w_av"))
-    cs.car_av = _as_float(row.get("car_av"))
-    cs.dr_av = _as_float(row.get("dr_av"))
-    cs.games = _as_int(row.get("games"))
+    # AV
+    cs.w_av = _f(row.get("w_av"))
+    cs.car_av = _f(row.get("car_av"))
+    cs.dr_av = _f(row.get("dr_av"))
 
-    cs.pass_completions = _as_int(row.get("pass_completions"))
-    cs.pass_attempts = _as_int(row.get("pass_attempts"))
-    cs.pass_yards = _as_int(row.get("pass_yards"))
-    cs.pass_tds = _as_int(row.get("pass_tds"))
-    cs.pass_ints = _as_int(row.get("pass_ints"))
+    # totals
+    cs.games = _i(row.get("games"))
 
-    cs.rush_atts = _as_int(row.get("rush_atts"))
-    cs.rush_yards = _as_int(row.get("rush_yards"))
-    cs.rush_tds = _as_int(row.get("rush_tds"))
+    cs.pass_completions = _i(row.get("pass_completions"))
+    cs.pass_attempts = _i(row.get("pass_attempts"))
+    cs.pass_yards = _i(row.get("pass_yards"))
+    cs.pass_tds = _i(row.get("pass_tds"))
+    cs.pass_ints = _i(row.get("pass_ints"))
 
-    cs.receptions = _as_int(row.get("receptions"))
-    cs.rec_yards = _as_int(row.get("rec_yards"))
-    cs.rec_tds = _as_int(row.get("rec_tds"))
+    cs.rush_atts = _i(row.get("rush_atts"))
+    cs.rush_yards = _i(row.get("rush_yards"))
+    cs.rush_tds = _i(row.get("rush_tds"))
 
-    cs.def_solo_tackles = _as_int(row.get("def_solo_tackles"))
-    cs.def_ints = _as_int(row.get("def_ints"))
-    cs.def_sacks = _as_float(row.get("def_sacks"))
+    cs.receptions = _i(row.get("receptions"))
+    cs.rec_yards = _i(row.get("rec_yards"))
+    cs.rec_tds = _i(row.get("rec_tds"))
+
+    cs.def_solo_tackles = _i(row.get("def_solo_tackles"))
+    cs.def_ints = _i(row.get("def_ints"))
+    cs.def_sacks = _f(row.get("def_sacks"))
 
 
-def _compute_pick_in_round(df: pd.DataFrame) -> pd.Series:
+def read_csv_rows(csv_path: Path) -> list[dict[str, Any]]:
+    with csv_path.open("r", encoding="utf-8", newline="") as f:
+        reader = csv.DictReader(f)
+        if reader.fieldnames is None:
+            raise ValueError(f"{csv_path.name}: missing header row")
+
+        missing = REQUIRED_COLS - set(reader.fieldnames)
+        if missing:
+            raise ValueError(f"{csv_path.name}: missing required columns: {sorted(missing)}")
+
+        return [row for row in reader]
+
+
+def compute_pick_in_round(rows: list[dict[str, Any]]) -> None:
     """
-    Your CSV 'pick' is overall pick number.
-    Compute pick_in_round as 1..N within each (season, round) ordered by overall pick.
+    Your CSV contains overall 'pick' but not 'pick_in_round'.
+    We compute it by sorting by (season, round, pick) then counting within (season, round).
     """
-    return (
-        df.sort_values(["season", "round", "pick"])
-        .groupby(["season", "round"])
-        .cumcount()
-        .add(1)
-        .reindex(df.sort_values(["season", "round", "pick"]).index)
-    )
+    rows.sort(key=lambda r: (int(float(r["season"])), int(float(r["round"])), int(float(r["pick"]))))
+
+    counters: dict[tuple[int, int], int] = {}
+    for r in rows:
+        season = int(float(r["season"]))
+        rnd = int(float(r["round"]))
+        key = (season, rnd)
+        counters[key] = counters.get(key, 0) + 1
+        r["pick_in_round"] = str(counters[key])
 
 
 async def ingest_csv_file(session: AsyncSession, *, csv_path: Path) -> int:
-    df = pd.read_csv(csv_path)
-
-    missing = REQUIRED_COLS - set(df.columns)
-    if missing:
-        raise ValueError(f"{csv_path.name}: missing required columns: {sorted(missing)}")
-
-    # enforce types-ish
-    df["season"] = df["season"].astype(int)
-    df["round"] = df["round"].astype(int)
-    df["pick"] = df["pick"].astype(int)
-
-    # compute pick_in_round
-    df = df.sort_values(["season", "round", "pick"]).reset_index(drop=True)
-    df["pick_in_round"] = df.groupby(["season", "round"]).cumcount() + 1
+    rows = read_csv_rows(csv_path)
+    compute_pick_in_round(rows)
 
     count = 0
-    for row in df.to_dict(orient="records"):
-        year = int(row["season"])
-        round_num = int(row["round"])
-        overall = int(row["pick"])
+    for row in rows:
+        year = int(float(row["season"]))
+        round_num = int(float(row["round"]))
+        overall = int(float(row["pick"]))
 
         team_raw = str(row["team"])
         team_abbrev = normalize_team_abbrev(team_raw)
 
-        player = await upsert_player_from_row(session, row)
+        full_name = (row.get("pfr_player_name") or "").strip()
+        position = (row.get("position") or "").strip().upper()
+        college = _s(row.get("college"))
+
         team = await upsert_team(session, abbrev=team_abbrev)
+        player = await upsert_player(session, full_name=full_name, position=position, college=college)
 
         await upsert_pick(
             session,
             year=year,
             overall=overall,
             round_num=round_num,
-            pick_in_round=int(row["pick_in_round"]),
+            pick_in_round=int(float(row["pick_in_round"])),
             team_id=team.id,
             player_id=player.id,
             team_raw=team_raw,
         )
 
-        await upsert_career_summary(session, player_id=player.id, row=row)
+        # Optional career summary
+        await upsert_career_summary_if_available(session, player_id=player.id, row=row)
+
         count += 1
 
     return count
