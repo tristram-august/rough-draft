@@ -8,3 +8,6 @@ __pycache__/
 .DS_Store
 .pgdata/
 alembic_version.txt
+
+# Local data (do not commit)
+data/
