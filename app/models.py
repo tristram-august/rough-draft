@@ -189,3 +189,124 @@ class PlayerCareerSummary(Base):
     def_sacks: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     player: Mapped["Player"] = relationship()
+
+class PlayerDim(Base):
+    """
+    Canonical player identity / bio / IDs, keyed by gsis_id.
+    Source: players_NFL.csv
+    """
+    __tablename__ = "player_dim"
+
+    gsis_id: Mapped[str] = mapped_column(String(16), primary_key=True)
+
+    # External IDs (nullable)
+    pfr_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    espn_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    pff_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    nfl_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+
+    # Names
+    display_name: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    first_name: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    last_name: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    short_name: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    football_name: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    suffix: Mapped[str | None] = mapped_column(String(16), nullable=True)
+
+    # Bio
+    birth_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    height: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    weight: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    headshot: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Football
+    position: Mapped[str | None] = mapped_column(String(8), nullable=True, index=True)
+    position_group: Mapped[str | None] = mapped_column(String(16), nullable=True, index=True)
+    ngs_position: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    ngs_position_group: Mapped[str | None] = mapped_column(String(16), nullable=True)
+
+    # Status / current
+    latest_team: Mapped[str | None] = mapped_column(String(8), nullable=True, index=True)
+    status: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    ngs_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    ngs_status_short_description: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    years_of_experience: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    rookie_season: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    last_season: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    # Draft metadata
+    draft_year: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    draft_round: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    draft_pick: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    draft_team: Mapped[str | None] = mapped_column(String(8), nullable=True, index=True)
+
+    # School
+    college_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    college_conference: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+    jersey_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
+class PlayerGameStat(Base):
+    """
+    Game-by-game stats subset for drawer.
+    Source: player_stats_YYYY.csv (2000+)
+    """
+    __tablename__ = "player_game_stat"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+
+    # Join keys
+    player_gsis_id: Mapped[str] = mapped_column(ForeignKey("player_dim.gsis_id"), index=True)
+    season: Mapped[int] = mapped_column(Integer, index=True)
+    week: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    season_type: Mapped[str | None] = mapped_column(String(8), nullable=True)  # REG / POST etc
+
+    game_id: Mapped[str] = mapped_column(String(32), index=True)
+    team: Mapped[str] = mapped_column(String(8), index=True)
+    opponent_team: Mapped[str | None] = mapped_column(String(8), nullable=True)
+
+    position_group: Mapped[str | None] = mapped_column(String(16), nullable=True, index=True)
+
+    # Core passing
+    pass_completions: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    pass_attempts: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    pass_yards: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    pass_tds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    pass_ints: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    passing_epa: Mapped[float | None] = mapped_column(Float, nullable=True)
+    passing_cpoe: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    # Core rushing
+    rush_attempts: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    rush_yards: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    rush_tds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    rushing_epa: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    # Core receiving (volume-first + optional value)
+    targets: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    receptions: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    rec_yards: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    rec_tds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    receiving_epa: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    target_share: Mapped[float | None] = mapped_column(Float, nullable=True)
+    air_yards: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    air_yards_share: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    # Ball security
+    fumbles_lost: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    # Defense (splash + basics)
+    def_tackles: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    def_sacks: Mapped[float | None] = mapped_column(Float, nullable=True)
+    def_ints: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    def_forced_fumbles: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    def_fumble_recoveries: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    def_tds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("player_gsis_id", "game_id", "team", name="uq_player_game_team"),
+        Index("ix_pgs_player_season", "player_gsis_id", "season"),
+        Index("ix_pgs_player_team_season", "player_gsis_id", "team", "season"),
+    )

@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Header
-from sqlalchemy import select
+from sqlalchemy import select, text, delete
+from collections import defaultdict
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import db_session
 from app.mappers import pick_to_board_row, pick_to_detail, team_out
-from app.models import DraftPick, Team
+from app.models import DraftPick, Team, PickVote
 from app.repo import get_pick_detail, get_player_detail, get_team_draft_class, list_draft_board
 from app.repo_votes_bulk import get_community_votes_for_picks, get_your_votes_for_picks 
 from app.schemas import DraftBoardRow, PickDetail, PlayerDetail, PlayerSeasonStatOut, TeamDraftClass, VoteIn, CommunityVotesOut, VoteOut
@@ -189,15 +190,163 @@ async def vote_on_pick(
     if not pick_id:
         raise HTTPException(status_code=404, detail="Pick not found")
 
-    await upsert_vote(
-        session,
-        pick_id=pick_id,
-        voter_type="anon",
-        voter_key=voter_key,
-        value=payload.value,
-    )
+    existing = await get_your_vote(session, pick_id=pick_id, voter_type="anon", voter_key=voter_key)
+
+    # IMPORTANT: depending on your repo, get_your_vote may return VoteOut, a dict, or a string.
+    # Normalize it to a string value.
+    existing_value = None
+    if existing is None:
+        existing_value = None
+    elif isinstance(existing, str):
+        existing_value = existing
+    elif hasattr(existing, "value"):
+        existing_value = getattr(existing, "value")
+    elif isinstance(existing, dict):
+        existing_value = existing.get("value")
+
+    if existing_value == payload.value:
+        # Toggle off: delete vote
+        await session.execute(
+            delete(PickVote).where(
+                PickVote.pick_id == pick_id,
+                PickVote.voter_type == "anon",
+                PickVote.voter_key == voter_key,
+            )
+        )
+    else:
+        # Set / change vote (your existing helper)
+        await upsert_vote(
+            session,
+            pick_id=pick_id,
+            voter_type="anon",
+            voter_key=voter_key,
+            value=payload.value,
+        )
+
     await session.commit()
 
     success, bust = await get_community_votes(session, pick_id=pick_id)
     return CommunityVotesOut(**community_votes_out(success, bust))
 
+@router.get("/rankings")
+async def rankings(
+    year: int = Query(..., ge=1936, le=2100),
+    group_by: str = Query(..., pattern="^(team|player)$", alias="groupBy"),
+    sort: str = Query("best", pattern="^(best|worst)$"),
+    round: int | None = Query(None, ge=1, le=32),
+    team: str | None = Query(None, min_length=2, max_length=8),
+    pos: str | None = Query(None, min_length=1, max_length=8),
+    q: str | None = Query(None, min_length=1, max_length=128),
+    limit: int = Query(20, ge=1, le=50),
+    min_votes: int = Query(1, ge=0, le=10_000, alias="minVotes"),
+    session: AsyncSession = Depends(db_session),
+) -> dict:
+    """
+    Rankings for:
+      - groupBy=team : best teams by success ratio
+      - groupBy=player + sort=best : best players by success ratio
+      - groupBy=player + sort=worst: worst players by success ratio
+
+    Uses your existing bulk vote loader: get_community_votes_for_picks().
+    """
+
+    # 1) Load scoped picks (NO pagination; year is small enough ~260 picks)
+    stmt = select(DraftPick).where(DraftPick.year == year)
+
+    if round is not None:
+        stmt = stmt.where(DraftPick.round == round)
+    if team is not None:
+        # NOTE: your /draft endpoint uses list_draft_board() for team filtering;
+        # here we match directly on DraftPick.team_id IF team is numeric, otherwise we try abbrev-ish match.
+        # If this doesn't match your UI's "team" values, tell me what your frontend sends (e.g. "NE" vs "Patriots" vs team_id).
+        try:
+            team_id_int = int(team)
+            stmt = stmt.where(DraftPick.team_id == team_id_int)
+        except ValueError:
+            # best-effort: if your DraftPick has a "team_abbrev" column, switch to it.
+            # Otherwise, you likely want to map abbrev->id in UI or add a join here.
+            pass
+
+    if pos is not None:
+        # If your DraftPick uses "position" instead of "pos", change this line.
+        if hasattr(DraftPick, "pos"):
+            stmt = stmt.where(DraftPick.pos == pos)
+        elif hasattr(DraftPick, "position"):
+            stmt = stmt.where(DraftPick.position == pos)
+
+    if q is not None:
+        # If your DraftPick uses a different column name (player_name), change here.
+        if hasattr(DraftPick, "player_name"):
+            stmt = stmt.where(DraftPick.player_name.ilike(f"%{q}%"))
+        elif hasattr(DraftPick, "player") and hasattr(DraftPick.player, "full_name"):
+            # relationship-based filtering is trickier; leave as-is for now
+            pass
+
+    res = await session.execute(stmt)
+    picks: list[DraftPick] = list(res.scalars().all())
+
+    # 2) Bulk community votes for these picks
+    pick_ids = [p.id for p in picks]
+    cv_map = await get_community_votes_for_picks(session, pick_ids=pick_ids)
+
+    # 3) Aggregate
+    # Each cv_map[pick_id] looks like: {"success": int, "bust": int, "total": int, ...}
+    agg = defaultdict(lambda: {"success": 0, "bust": 0, "totalVotes": 0})
+
+    for p in picks:
+        cv = cv_map.get(p.id) or {"success": 0, "bust": 0, "total": 0}
+
+        if group_by == "team":
+            # Prefer an abbrev if your model has it; otherwise fall back to team_id.
+            if hasattr(p, "team_abbrev") and p.team_abbrev:
+                key = str(p.team_abbrev)
+            else:
+                key = str(getattr(p, "team_id", "Unknown"))
+        else:
+            # Prefer a stored name column; otherwise fall back to player_id.
+            if hasattr(p, "player_name") and p.player_name:
+                key = str(p.player_name)
+            else:
+                key = str(getattr(p, "player_id", "Unknown"))
+
+        agg[key]["success"] += int(cv.get("success", 0) or 0)
+        agg[key]["bust"] += int(cv.get("bust", 0) or 0)
+        agg[key]["totalVotes"] += int(cv.get("total", 0) or 0)
+
+    # 4) Convert to items with ratio
+    items = []
+    for label, v in agg.items():
+        total = v["success"] + v["bust"]
+        ratio = (v["success"] / total) if total > 0 else None
+        if v["totalVotes"] < min_votes:
+            continue
+        items.append(
+            {
+                ("team" if group_by == "team" else "player"): label,
+                "success": v["success"],
+                "bust": v["bust"],
+                "totalVotes": v["totalVotes"],
+                "ratio": ratio,
+            }
+        )
+
+    # 5) Sort + limit
+    # best: higher ratio first; worst: lower ratio first
+    # push None ratios to bottom always
+    def sort_key(it: dict):
+        r = it["ratio"]
+        none_flag = 1 if r is None else 0
+        # for stable ordering, also use votes desc
+        return (none_flag, r if r is not None else 0.0, -it["totalVotes"])
+
+    items.sort(key=sort_key, reverse=(sort == "best"))
+    items = items[:limit]
+
+    return {
+        "year": year,
+        "groupBy": group_by,
+        "sort": sort,
+        "limit": limit,
+        "minVotes": min_votes,
+        "items": items,
+    }
