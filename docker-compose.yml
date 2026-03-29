@@ -18,6 +18,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://draftboard:draftboard@db:5432/draftboard
       APP_ENV: dev
       APP_DEBUG: "true"
+      PYTHONPATH: /app
     ports:
       - "8000:8000"
     depends_on:
