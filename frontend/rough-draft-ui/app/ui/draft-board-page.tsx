@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 type TeamOut = {
   id: number;
@@ -65,25 +65,25 @@ const NFL_TEAMS: Array<{ abbrev: string; label: string }> = [
   { abbrev: "DAL", label: "DAL — Dallas Cowboys" },
   { abbrev: "DEN", label: "DEN — Denver Broncos" },
   { abbrev: "DET", label: "DET — Detroit Lions" },
-  { abbrev: "GB",  label: "GB — Green Bay Packers" },
+  { abbrev: "GB", label: "GB — Green Bay Packers" },
   { abbrev: "HOU", label: "HOU — Houston Texans" },
   { abbrev: "IND", label: "IND — Indianapolis Colts" },
   { abbrev: "JAX", label: "JAX — Jacksonville Jaguars" },
-  { abbrev: "KC",  label: "KC — Kansas City Chiefs" },
+  { abbrev: "KC", label: "KC — Kansas City Chiefs" },
   { abbrev: "LAC", label: "LAC — Los Angeles Chargers" },
   { abbrev: "LAR", label: "LAR — Los Angeles Rams" },
-  { abbrev: "LV",  label: "LV — Las Vegas Raiders" },
+  { abbrev: "LV", label: "LV — Las Vegas Raiders" },
   { abbrev: "MIA", label: "MIA — Miami Dolphins" },
   { abbrev: "MIN", label: "MIN — Minnesota Vikings" },
-  { abbrev: "NE",  label: "NE — New England Patriots" },
-  { abbrev: "NO",  label: "NO — New Orleans Saints" },
+  { abbrev: "NE", label: "NE — New England Patriots" },
+  { abbrev: "NO", label: "NO — New Orleans Saints" },
   { abbrev: "NYG", label: "NYG — New York Giants" },
   { abbrev: "NYJ", label: "NYJ — New York Jets" },
   { abbrev: "PHI", label: "PHI — Philadelphia Eagles" },
   { abbrev: "PIT", label: "PIT — Pittsburgh Steelers" },
   { abbrev: "SEA", label: "SEA — Seattle Seahawks" },
-  { abbrev: "SF",  label: "SF — San Francisco 49ers" },
-  { abbrev: "TB",  label: "TB — Tampa Bay Buccaneers" },
+  { abbrev: "SF", label: "SF — San Francisco 49ers" },
+  { abbrev: "TB", label: "TB — Tampa Bay Buccaneers" },
   { abbrev: "TEN", label: "TEN — Tennessee Titans" },
   { abbrev: "WAS", label: "WAS — Washington Commanders" },
 ];
@@ -307,17 +307,45 @@ async function postVote(year: number, overall: number, value: "success" | "bust"
     },
     body: JSON.stringify({ value }),
   });
-  if (!res.ok) throw new Error(`Vote failed: ${res.status}`);
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Vote failed: ${res.status}${text ? ` — ${text}` : ""}`);
+  }
   return res.json();
 }
 
-function Row({ row, onClick }: { row: DraftBoardRow; onClick: () => void }) {
+function Row({
+  row,
+  onClick,
+  onVote,
+}: {
+  row: DraftBoardRow;
+  onClick: () => void;
+  onVote: (year: number, overall: number, value: "success" | "bust") => Promise<void>;
+}) {
   const cv = row.community_votes ?? null;
+  const your = row.your_vote?.value ?? null;
+  const [isRowVoting, setIsRowVoting] = React.useState(false);
+
+  async function vote(e: React.MouseEvent, value: "success" | "bust") {
+    e.stopPropagation(); // clicking vote must NOT open drawer
+    if (isRowVoting) return;
+    setIsRowVoting(true);
+    try {
+      await onVote(row.year, row.overall, value);
+    } finally {
+      setIsRowVoting(false);
+    }
+  }
 
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") onClick();
+      }}
       className="w-full text-left rounded-2xl border border-slate-800 bg-slate-900/30 hover:bg-slate-900/50 transition-colors px-4 py-3"
     >
       <div className="flex items-center gap-4">
@@ -340,33 +368,70 @@ function Row({ row, onClick }: { row: DraftBoardRow; onClick: () => void }) {
           </div>
         </div>
 
-        <div className="w-36 shrink-0 text-right">
-          <ScoreBadge cv={cv} />
+        <div className="w-56 shrink-0 text-right">
+          <div className="flex items-center justify-end gap-2">
+            <ScoreBadge cv={cv} />
+
+            {/* Bust on the left, Success on the right */}
+            <button
+              type="button"
+              disabled={isRowVoting}
+              onClick={(e) => vote(e, "bust")}
+              className={cx(
+                "rounded-xl border px-3 py-2 text-sm",
+                your === "bust"
+                  ? "border-slate-600 bg-slate-200/10"
+                  : "border-slate-800 bg-slate-900/40 hover:bg-slate-800/60",
+                "disabled:opacity-40 disabled:hover:bg-slate-900/40"
+              )}
+              aria-label="Vote bust"
+              title="Vote bust"
+            >
+              ❌
+            </button>
+
+            <button
+              type="button"
+              disabled={isRowVoting}
+              onClick={(e) => vote(e, "success")}
+              className={cx(
+                "rounded-xl border px-3 py-2 text-sm",
+                your === "success"
+                  ? "border-slate-600 bg-slate-200/10"
+                  : "border-slate-800 bg-slate-900/40 hover:bg-slate-800/60",
+                "disabled:opacity-40 disabled:hover:bg-slate-900/40"
+              )}
+              aria-label="Vote success"
+              title="Vote success"
+            >
+              ✅
+            </button>
+          </div>
+
           <VoteBar cv={cv} />
         </div>
       </div>
-    </button>
+    </div>
   );
 }
 
 export default function DraftBoardPage() {
   const PAGE_SIZE = 32;
+  const queryClient = useQueryClient();
 
-  // Year dropdown defaults to most recent available (2000..2025 => 2025)
   const years = React.useMemo(() => Array.from({ length: 26 }, (_, i) => 2000 + i), []);
   const mostRecentYear = years[years.length - 1];
 
   const [year, setYear] = React.useState<number>(mostRecentYear);
-  const [round, setRound] = React.useState<number | null>(null); // All rounds by default
+  const [round, setRound] = React.useState<number | null>(null);
   const [team, setTeam] = React.useState<string>("");
   const [pos, setPos] = React.useState<string>("");
   const [q, setQ] = React.useState<string>("");
 
   const [offset, setOffset] = React.useState<number>(0);
-
   const [selected, setSelected] = React.useState<{ year: number; overall: number } | null>(null);
+  const [isVoting, setIsVoting] = React.useState(false);
 
-  // reset to first page whenever filters change
   React.useEffect(() => {
     setOffset(0);
   }, [year, round, team, pos, q]);
@@ -391,13 +456,6 @@ export default function DraftBoardPage() {
     enabled: !!selected,
   });
 
-  const uniqueTeams = React.useMemo(() => {
-    const rows = boardQuery.data ?? [];
-    const map = new Map<string, string>();
-    rows.forEach((r) => map.set(r.team.abbrev, `${r.team.abbrev} — ${r.team.city} ${r.team.name}`));
-    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-  }, [boardQuery.data]);
-
   const uniquePositions = React.useMemo(() => {
     const rows = boardQuery.data ?? [];
     const set = new Set<string>();
@@ -409,11 +467,96 @@ export default function DraftBoardPage() {
   const canPrev = offset > 0;
   const canNext = pageCount === PAGE_SIZE;
 
+  // Drawer voting (bust left, success right)
   async function handleVote(value: "success" | "bust") {
-    if (!selected) return;
-    await postVote(selected.year, selected.overall, value);
-    await Promise.all([pickQuery.refetch(), boardQuery.refetch()]);
+    if (!selected || isVoting) return;
+    setIsVoting(true);
+    try {
+      await postVote(selected.year, selected.overall, value);
+      await Promise.all([pickQuery.refetch(), boardQuery.refetch()]);
+    } finally {
+      setIsVoting(false);
+    }
   }
+
+// Inline row voting (optimistic)
+async function handleInlineVote(year0: number, overall0: number, value: "success" | "bust") {
+  const boardKey = ["draft", year, round, team, pos, q, offset, PAGE_SIZE];
+  const pickKey = ["pick", selected?.year, selected?.overall];
+
+  // Snapshot current caches for rollback
+  const prevBoard = queryClient.getQueryData<DraftBoardRow[]>(boardKey);
+  const prevPick = queryClient.getQueryData<PickDetail>(pickKey);
+
+  // Compute the "next" vote locally (toggle-off: clicking same vote clears)
+  const currentRow = prevBoard?.find((r) => r.year === year0 && r.overall === overall0);
+  const currentVote = currentRow?.your_vote?.value ?? null;
+  const nextVote: "success" | "bust" | null = currentVote === value ? null : value;
+
+  function applyOptimisticToRow(row: DraftBoardRow): DraftBoardRow {
+    if (row.year !== year0 || row.overall !== overall0) return row;
+
+    const cv0 = row.community_votes ?? {
+      success: 0,
+      bust: 0,
+      total: 0,
+      community_score: 0,
+      community_label: "No votes",
+    };
+
+    let success = cv0.success;
+    let bust = cv0.bust;
+
+    // remove prior vote if present
+    if (currentVote === "success") success = Math.max(0, success - 1);
+    if (currentVote === "bust") bust = Math.max(0, bust - 1);
+
+    // add next vote if present
+    if (nextVote === "success") success += 1;
+    if (nextVote === "bust") bust += 1;
+
+    const total = success + bust;
+    const community_score = total > 0 ? Math.round((success / total) * 100) : 0;
+
+    return {
+      ...row,
+      your_vote: nextVote ? { value: nextVote } : null,
+      community_votes: {
+        ...cv0,
+        success,
+        bust,
+        total,
+        community_score,
+        community_label: total === 0 ? "No votes" : cv0.community_label,
+      },
+    };
+  }
+
+  // Optimistically update board
+  if (prevBoard) {
+    queryClient.setQueryData<DraftBoardRow[]>(boardKey, prevBoard.map(applyOptimisticToRow));
+  }
+
+  // If drawer is open on same pick, optimistically update it too
+  if (selected && selected.year === year0 && selected.overall === overall0 && prevPick) {
+    queryClient.setQueryData<PickDetail>(pickKey, applyOptimisticToRow(prevPick) as PickDetail);
+  }
+
+  try {
+    await postVote(year0, overall0, value);
+
+    // Confirm truth from server
+    await boardQuery.refetch();
+    if (selected && selected.year === year0 && selected.overall === overall0) {
+      await pickQuery.refetch();
+    }
+  } catch (e) {
+    // Rollback
+    if (prevBoard) queryClient.setQueryData(boardKey, prevBoard);
+    if (prevPick) queryClient.setQueryData(pickKey, prevPick);
+    throw e;
+  }
+}
 
   return (
     <div className="space-y-5">
@@ -506,7 +649,6 @@ export default function DraftBoardPage() {
         </div>
       </div>
 
-      {/* ✅ Paginator controls go HERE: between filters and the list */}
       <div className="flex items-center justify-between gap-3">
         <div className="text-xs text-slate-500">
           Showing {offset + 1}–{offset + pageCount}
@@ -545,7 +687,12 @@ export default function DraftBoardPage() {
       ) : (
         <div className="space-y-3">
           {(boardQuery.data ?? []).map((r) => (
-            <Row key={`${r.year}-${r.overall}`} row={r} onClick={() => setSelected({ year: r.year, overall: r.overall })} />
+            <Row
+              key={`${r.year}-${r.overall}`}
+              row={r}
+              onClick={() => setSelected({ year: r.year, overall: r.overall })}
+              onVote={handleInlineVote}
+            />
           ))}
           {boardQuery.isLoading ? <div className="text-sm text-slate-500">Loading…</div> : null}
         </div>
@@ -598,23 +745,32 @@ export default function DraftBoardPage() {
                     <span className="text-xs text-slate-400">You: {pickQuery.data.your_vote.value}</span>
                   ) : null}
                 </div>
+
                 <div className="flex gap-2">
+                  {/* Bust on the left, Success on the right */}
                   <button
-                    className="rounded-2xl border border-slate-800 bg-slate-900/40 px-4 py-2 text-sm text-slate-100 hover:bg-slate-800/60"
-                    onClick={() => handleVote("success")}
-                    type="button"
-                  >
-                    ✅ Success
-                  </button>
-                  <button
-                    className="rounded-2xl border border-slate-800 bg-slate-900/40 px-4 py-2 text-sm text-slate-100 hover:bg-slate-800/60"
+                    disabled={isVoting}
+                    className="rounded-2xl border border-slate-800 bg-slate-900/40 px-4 py-2 text-sm text-slate-100 hover:bg-slate-800/60 disabled:opacity-40 disabled:hover:bg-slate-900/40"
                     onClick={() => handleVote("bust")}
                     type="button"
                   >
                     ❌ Bust
                   </button>
+
+                  <button
+                    disabled={isVoting}
+                    className="rounded-2xl border border-slate-800 bg-slate-900/40 px-4 py-2 text-sm text-slate-100 hover:bg-slate-800/60 disabled:opacity-40 disabled:hover:bg-slate-900/40"
+                    onClick={() => handleVote("success")}
+                    type="button"
+                  >
+                    ✅ Success
+                  </button>
                 </div>
               </div>
+
+              {(pickQuery.data.community_votes?.total ?? 0) === 0 ? (
+                <div className="mt-3 text-xs text-slate-400">No votes yet — be the first to vote!</div>
+              ) : null}
 
               <VoteBar cv={pickQuery.data.community_votes ?? null} />
             </div>
