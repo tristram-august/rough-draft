@@ -140,15 +140,23 @@ async def upsert_team(session: AsyncSession, *, abbrev: str) -> Team:
     return team
 
 
-async def upsert_player(session: AsyncSession, *, full_name: str, position: str, college: str | None) -> Player:
+async def upsert_player(
+    session: AsyncSession,
+    *,
+    full_name: str,
+    position: str,
+    college: str | None,
+    gsis_id: str | None,
+) -> Player:
     stmt = select(Player).where(Player.full_name == full_name, Player.position == position)
     res = await session.execute(stmt)
     player = res.scalars().first()
     if player:
         player.college = college or player.college
+        player.gsis_id = gsis_id or player.gsis_id
         return player
 
-    player = Player(full_name=full_name, position=position, college=college)
+    player = Player(full_name=full_name, position=position, college=college, gsis_id=gsis_id)
     session.add(player)
     await session.flush()
     return player
@@ -292,7 +300,9 @@ async def ingest_csv_file(session: AsyncSession, *, csv_path: Path) -> int:
         college = _s(row.get("college"))
 
         team = await upsert_team(session, abbrev=team_abbrev)
-        player = await upsert_player(session, full_name=full_name, position=position, college=college)
+        
+        gsis_id = _s(row.get("gsis_id"))
+        player = await upsert_player(session, full_name=full_name, position=position, college=college, gsis_id=gsis_id)
 
         await upsert_pick(
             session,

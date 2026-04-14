@@ -28,6 +28,7 @@ def pick_to_board_row(pick: DraftPick, traded_from_team: Team | None = None) -> 
             position=pick.player.position,
             college=pick.player.college,
             birthdate=pick.player.birthdate,
+            gsis_id=pick.player.gsis_id,
         ),
         traded_from_team=team_out(traded_from_team) if traded_from_team else None,
         outcome=OutcomeOut(

@@ -45,6 +45,7 @@ class Player(Base):
     position: Mapped[str] = mapped_column(String(8), index=True)
     college: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
     birthdate: Mapped[date | None] = mapped_column(Date, nullable=True)
+    gsis_id: Mapped[str | None] = mapped_column(String(16), nullable=True, index=True)
 
     stats: Mapped[list["PlayerSeasonStat"]] = relationship(back_populates="player")
 

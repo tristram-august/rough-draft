@@ -20,6 +20,7 @@ class PlayerOut(BaseModel):
     position: str
     college: str | None = None
     birthdate: date | None = None
+    gsis_id: str | None = None
 
 
 class OutcomeOut(BaseModel):
