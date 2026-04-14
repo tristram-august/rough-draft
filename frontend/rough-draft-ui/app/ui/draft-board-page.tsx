@@ -75,6 +75,8 @@ type DrawerTab = {
   };
 };
 
+type CareerTimelineEntry = { season: number; team: string; games: number };
+
 type DrawerResponse = {
   player: {
     gsis_id: string;
@@ -91,12 +93,10 @@ type DrawerResponse = {
     years_of_experience: number | null;
   };
   draft_context: { draft_team: string };
-  tabs: {
-    career: DrawerTab;
-    draft_team: DrawerTab;
-    other_teams: DrawerTab;
-  };
-  ui_hints: { default_tab: "career" | "draft_team" | "other_teams" };
+  tabs: Record<string, DrawerTab>;
+  timeline: CareerTimelineEntry[];
+  selected_team: string | null;
+  ui_hints: { default_tab: string };
 };
 
 type RankingsItem = {
@@ -266,9 +266,10 @@ async function postVote(year: number, overall: number, value: "success" | "bust"
   return res.json();
 }
 
-async function fetchDrawer(gsisId: string, draftTeam: string): Promise<DrawerResponse> {
+async function fetchDrawer(gsisId: string, draftTeam: string, team?: string | null): Promise<DrawerResponse> {
   const url = new URL(`${API_BASE}/player/${gsisId}/drawer`);
   url.searchParams.set("draft_team", draftTeam);
+  if (team) url.searchParams.set("team", team);
 
   const res = await fetch(url.toString(), { cache: "no-store" });
   if (!res.ok) throw new Error(`Drawer fetch failed: ${res.status}`);
@@ -438,29 +439,6 @@ function Row({
   );
 }
 
-function TabButton({
-  active,
-  children,
-  onClick,
-}: {
-  active: boolean;
-  children: React.ReactNode;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-2xl px-3 py-1.5 text-xs border transition-colors ${
-        active
-          ? "border-slate-200/20 bg-slate-200/10 text-slate-100"
-          : "border-slate-800 bg-slate-950/20 text-slate-300 hover:bg-slate-900/40"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
 
 function StatRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -526,6 +504,73 @@ function TeamPill({ team }: { team: string }) {
     <span className="inline-flex items-center rounded-full border border-slate-700 bg-slate-950 px-2 py-0.5 text-[11px] text-slate-300">
       {team}
     </span>
+  );
+}
+
+function CareerTimeline({
+  entries,
+  selectedTeam,
+  onSelect,
+}: {
+  entries: CareerTimelineEntry[];
+  selectedTeam: string | null;
+  onSelect: (team: string | null) => void;
+}) {
+  if (!entries.length) return null;
+
+  const spans: { team: string; seasons: number[] }[] = [];
+  for (const e of entries) {
+    const last = spans[spans.length - 1];
+    if (last && last.team === e.team) {
+      last.seasons.push(e.season);
+    } else {
+      spans.push({ team: e.team, seasons: [e.season] });
+    }
+  }
+
+  return (
+    <div className="rounded-3xl border border-slate-800 bg-slate-900/30 p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-xs text-slate-500">Career Timeline</span>
+        {selectedTeam && (
+          <button
+            type="button"
+            onClick={() => onSelect(null)}
+            className="rounded-full border border-slate-700 bg-slate-800 px-2 py-0.5 text-[10px] text-slate-300 hover:bg-slate-700 transition-colors"
+          >
+            All seasons
+          </button>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {spans.map((span, i) => {
+          const color = teamColor(span.team);
+          const isActive = selectedTeam === span.team;
+          const label =
+            span.seasons.length === 1
+              ? `${span.seasons[0]}`
+              : `${span.seasons[0]}–${span.seasons[span.seasons.length - 1]}`;
+          return (
+            <button
+              type="button"
+              key={i}
+              onClick={() => onSelect(isActive ? null : span.team)}
+              className="flex flex-col items-center rounded-xl px-2 py-1.5 border transition-all"
+              style={{
+                backgroundColor: color + (isActive ? "CC" : "33"),
+                borderColor: color + (isActive ? "FF" : "88"),
+                minWidth: `${Math.max(48, span.seasons.length * 18)}px`,
+                boxShadow: isActive ? `0 0 0 2px ${color}` : "none",
+              }}
+              title={`${span.team} (${label}) — click to filter`}
+            >
+              <span className="text-[11px] font-semibold text-slate-100">{span.team}</span>
+              <span className="text-[10px] text-slate-400">{label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -803,7 +848,7 @@ export default function DraftBoardPage() {
   const [offset, setOffset] = React.useState<number>(0);
   const [selected, setSelected] = React.useState<{ year: number; overall: number } | null>(null);
 
-  const [activeTab, setActiveTab] = React.useState<"career" | "draft_team" | "other_teams">("career");
+  const [selectedTeam, setSelectedTeam] = React.useState<string | null>(null);
 
   const [votingKeys, setVotingKeys] = React.useState<Set<string>>(() => new Set());
   const [rankingsPanelOpen, setRankingsPanelOpen] = React.useState(false);
@@ -813,7 +858,7 @@ export default function DraftBoardPage() {
   }, [year, round, team, pos, q]);
 
   React.useEffect(() => {
-    setActiveTab("career");
+    setSelectedTeam(null);
   }, [selected?.year, selected?.overall]);
 
   const boardQuery = useQuery({
@@ -885,8 +930,8 @@ export default function DraftBoardPage() {
   const drawerDraftTeam = pickQuery.data?.team?.abbrev ?? null;
 
   const drawerQuery = useQuery({
-    queryKey: ["drawer", drawerGsisId, drawerDraftTeam],
-    queryFn: () => fetchDrawer(drawerGsisId!, drawerDraftTeam!),
+    queryKey: ["drawer", drawerGsisId, drawerDraftTeam, selectedTeam],
+    queryFn: () => fetchDrawer(drawerGsisId!, drawerDraftTeam!, selectedTeam),
     enabled: !!drawerGsisId && !!drawerDraftTeam,
   });
 
@@ -1118,48 +1163,35 @@ export default function DraftBoardPage() {
               <VoteBar cv={pickQuery.data.community_votes ?? null} />
             </div>
 
+            {drawerQuery.data?.timeline?.length ? (
+              <CareerTimeline
+                entries={drawerQuery.data.timeline}
+                selectedTeam={selectedTeam}
+                onSelect={setSelectedTeam}
+              />
+            ) : null}
+
             <div className="rounded-3xl border border-slate-800 bg-slate-900/30 p-5">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <div className="text-xs text-slate-500">Career snapshot</div>
-                  <div className="text-sm text-slate-300">
-                    {drawerGsisId ? (
-                      <span className="font-mono text-[11px] text-slate-500">{drawerGsisId}</span>
-                    ) : (
-                      <span className="text-slate-500">No GSIS id on this pick yet.</span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex gap-2">
-                  <TabButton active={activeTab === "career"} onClick={() => setActiveTab("career")}>
-                    Career
-                  </TabButton>
-                  <TabButton active={activeTab === "draft_team"} onClick={() => setActiveTab("draft_team")}>
-                    Draft team
-                  </TabButton>
-                  <TabButton active={activeTab === "other_teams"} onClick={() => setActiveTab("other_teams")}>
-                    Other teams
-                  </TabButton>
-                </div>
+              <div className="text-xs text-slate-500 mb-1">
+                {selectedTeam ? `Stats with ${selectedTeam}` : "Career Stats"}
               </div>
-
-              <div className="mt-4">
+              <div className="mt-2">
                 {!drawerGsisId ? (
-                  <div className="text-sm text-slate-500">
-                    This pick detail response doesn’t include a GSIS id, so we can’t fetch career stats yet.
-                  </div>
+                  <div className="text-sm text-slate-500">No GSIS id on this pick yet.</div>
                 ) : drawerQuery.isLoading ? (
-                  <div className="text-sm text-slate-500">Loading career stats…</div>
+                  <div className="text-sm text-slate-500">Loading…</div>
                 ) : drawerQuery.error ? (
                   <div className="text-sm">
-                    <div className="font-semibold text-slate-100">Failed to load career stats</div>
+                    <div className="font-semibold text-slate-100">Failed to load stats</div>
                     <pre className="mt-4 text-xs overflow-auto rounded-2xl border border-slate-800 p-4 bg-slate-950/40">
                       {String(drawerQuery.error)}
                     </pre>
                   </div>
                 ) : drawerQuery.data ? (
-                  <DrawerTabView tab={drawerQuery.data.tabs[activeTab]} positionGroup={drawerQuery.data.player.position_group} />
+                  <DrawerTabView
+                    tab={drawerQuery.data.tabs[selectedTeam ? "selected" : "career"]}
+                    positionGroup={drawerQuery.data.player.position_group}
+                  />
                 ) : (
                   <div className="text-sm text-slate-500">No stats available.</div>
                 )}

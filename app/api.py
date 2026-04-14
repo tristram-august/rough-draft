@@ -650,8 +650,36 @@ async def _best_game(session: AsyncSession, gsis_id: str, clause: Any, pos_bucke
     }
 
 
-async def _build_tab(session: AsyncSession, gsis_id: str, draft_team: str, scope: str, pos_bucket: str) -> dict[str, Any]:
-    clause = _scope_clause(scope, draft_team)
+async def _career_timeline(session: AsyncSession, gsis_id: str) -> list[dict[str, Any]]:
+    """One entry per season: the team with the most games that season."""
+    q = (
+        select(
+            PlayerGameStat.season.label("season"),
+            PlayerGameStat.team.label("team"),
+            func.count(func.distinct(PlayerGameStat.game_id)).label("games"),
+        )
+        .where(
+            PlayerGameStat.player_gsis_id == gsis_id,
+            PlayerGameStat.season_type == "REG",
+        )
+        .group_by(PlayerGameStat.season, PlayerGameStat.team)
+        .order_by(PlayerGameStat.season.asc(), func.count(func.distinct(PlayerGameStat.game_id)).desc())
+    )
+    rows = (await session.execute(q)).all()
+
+    # Keep only the primary team per season (first row after ordering by games desc)
+    seen: set[int] = set()
+    timeline = []
+    for r in rows:
+        season = int(r.season)
+        if season not in seen:
+            seen.add(season)
+            timeline.append({"season": season, "team": r.team, "games": int(r.games)})
+    return timeline
+
+
+async def _build_tab(session: AsyncSession, gsis_id: str, draft_team: str, scope: str, pos_bucket: str, clause_override: Any = None) -> dict[str, Any]:
+    clause = clause_override if clause_override is not None else _scope_clause(scope, draft_team)
 
     totals_blob = await _aggregate_totals(session, gsis_id, clause)
     teams_by = await _teams_by_games(session, gsis_id, clause)
@@ -692,9 +720,11 @@ async def _build_tab(session: AsyncSession, gsis_id: str, draft_team: str, scope
 async def player_drawer(
     gsis_id: str,
     draft_team: str = Query(..., min_length=2, max_length=8),
+    team: str | None = Query(None, min_length=2, max_length=8),
     session: AsyncSession = Depends(db_session),
 ) -> dict[str, Any]:
     draft_team = draft_team.strip().upper()
+    team = team.strip().upper() if team else None
 
     player_dim = await _get_player_dim(session, gsis_id)
 
@@ -722,16 +752,24 @@ async def player_drawer(
         "years_of_experience": player_dim.years_of_experience if player_dim else None,
     }
 
-    tabs = {
-        "career": await _build_tab(session, gsis_id, draft_team, "career", pos_bucket),
-        "draft_team": await _build_tab(session, gsis_id, draft_team, "draft_team", pos_bucket),
-        "other_teams": await _build_tab(session, gsis_id, draft_team, "other_teams", pos_bucket),
-    }
+    if team:
+        selected_clause = PlayerGameStat.team == team
+        selected_tab = await _build_tab(session, gsis_id, draft_team, "career", pos_bucket, clause_override=selected_clause)
+        selected_tab["title"] = team
+        tabs = {"selected": selected_tab}
+    else:
+        tabs = {
+            "career": await _build_tab(session, gsis_id, draft_team, "career", pos_bucket),
+        }
+
+    timeline = await _career_timeline(session, gsis_id)
 
     return {
         "player": player_payload,
         "draft_context": {"draft_team": draft_team},
         "tabs": tabs,
+        "timeline": timeline,
+        "selected_team": team,
         "ui_hints": {
             "default_tab": "career",
             "receiver_best_game_metric": "rec_yards",
