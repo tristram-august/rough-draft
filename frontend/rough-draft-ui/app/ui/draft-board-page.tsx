@@ -103,6 +103,8 @@ type RankingsItem = {
   team?: string;
   player?: string;
   draft_team?: string | null;
+  round?: number | null;
+  overall?: number | null;
   success: number;
   bust: number;
   totalVotes: number;
@@ -279,9 +281,11 @@ async function fetchDrawer(gsisId: string, draftTeam: string, team?: string | nu
 async function fetchRankings(
   year: number,
   groupBy: "team" | "player",
-  sort: "best" | "worst" = "best",
+  sort: "best" | "worst" | "most_voted" | "controversial" = "best",
   minVotes: number = 1,
   limit: number = 32,
+  minRound?: number,
+  maxRound?: number,
 ): Promise<{ items: RankingsItem[] }> {
   const url = new URL(`${API_BASE}/rankings`);
   url.searchParams.set("year", String(year));
@@ -289,6 +293,8 @@ async function fetchRankings(
   url.searchParams.set("sort", sort);
   url.searchParams.set("minVotes", String(minVotes));
   url.searchParams.set("limit", String(limit));
+  if (minRound != null) url.searchParams.set("minRound", String(minRound));
+  if (maxRound != null) url.searchParams.set("maxRound", String(maxRound));
   const res = await fetch(url.toString(), { cache: "no-store" });
   if (!res.ok) throw new Error(`Rankings fetch failed: ${res.status}`);
   return res.json();
@@ -700,21 +706,25 @@ function RankingsWindow({
   sort = "best",
   minVotes = 1,
   limit = 32,
+  minRound,
+  maxRound,
   defaultOpen = true,
 }: {
   title: string;
   year: number;
   groupBy: "team" | "player";
-  sort?: "best" | "worst";
+  sort?: "best" | "worst" | "most_voted" | "controversial";
   minVotes?: number;
   limit?: number;
+  minRound?: number;
+  maxRound?: number;
   defaultOpen?: boolean;
 }) {
   const [open, setOpen] = React.useState(defaultOpen);
 
   const query = useQuery({
-    queryKey: ["rankings", groupBy, sort, year, minVotes, limit],
-    queryFn: () => fetchRankings(year, groupBy, sort, minVotes, limit),
+    queryKey: ["rankings", groupBy, sort, year, minVotes, limit, minRound, maxRound],
+    queryFn: () => fetchRankings(year, groupBy, sort, minVotes, limit, minRound, maxRound),
     enabled: open,
   });
 
@@ -748,8 +758,10 @@ function RankingsWindow({
                   <span className="w-5 shrink-0 text-right text-[11px] text-slate-500">{i + 1}.</span>
                   <div className="flex-1 min-w-0">
                     <div className="truncate text-[11px] text-slate-200">{label}</div>
-                    {item.draft_team && (
-                      <div className="text-[10px] text-slate-500">{item.draft_team}</div>
+                    {(item.draft_team || item.round != null) && (
+                      <div className="text-[10px] text-slate-500">
+                        {item.draft_team}{item.round != null ? ` · Rd ${item.round} #${item.overall}` : ""}
+                      </div>
                     )}
                   </div>
                   <span className="shrink-0 text-[11px] text-slate-300">{pct != null ? `${pct}%` : "—"}</span>
@@ -798,9 +810,13 @@ function RankingsPanel({
           </button>
         </div>
         <div className="flex-1 overflow-y-auto p-3 space-y-2">
-          <RankingsWindow title="Team Success %" year={year} groupBy="team" sort="best" limit={32} />
+          <RankingsWindow title="Team Success %" year={year} groupBy="team" sort="best" limit={32} defaultOpen={false} />
           <RankingsWindow title="Best Picks" year={year} groupBy="player" sort="best" minVotes={2} limit={10} defaultOpen={false} />
           <RankingsWindow title="Biggest Busts" year={year} groupBy="player" sort="worst" minVotes={2} limit={10} defaultOpen={false} />
+          <RankingsWindow title="Most Controversial" year={year} groupBy="player" sort="controversial" minVotes={3} limit={10} defaultOpen={false} />
+          <RankingsWindow title="Most Voted" year={year} groupBy="player" sort="most_voted" minVotes={1} limit={10} defaultOpen={false} />
+          <RankingsWindow title="Biggest Steals" year={year} groupBy="player" sort="best" minVotes={2} limit={10} minRound={3} defaultOpen={false} />
+          <RankingsWindow title="Biggest Reaches" year={year} groupBy="player" sort="worst" minVotes={2} limit={10} maxRound={2} defaultOpen={false} />
         </div>
       </aside>
 

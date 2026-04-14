@@ -245,8 +245,10 @@ async def vote_on_pick(
 async def rankings(
     year: int = Query(..., ge=1936, le=2100),
     group_by: str = Query(..., pattern="^(team|player)$", alias="groupBy"),
-    sort: str = Query("best", pattern="^(best|worst)$"),
+    sort: str = Query("best", pattern="^(best|worst|most_voted|controversial)$"),
     round: int | None = Query(None, ge=1, le=32),
+    min_round: int | None = Query(None, ge=1, le=32, alias="minRound"),
+    max_round: int | None = Query(None, ge=1, le=32, alias="maxRound"),
     team: str | None = Query(None, min_length=2, max_length=8),
     pos: str | None = Query(None, min_length=1, max_length=8),
     q: str | None = Query(None, min_length=1, max_length=128),
@@ -272,6 +274,10 @@ async def rankings(
 
     if round is not None:
         stmt = stmt.where(DraftPick.round == round)
+    if min_round is not None:
+        stmt = stmt.where(DraftPick.round >= min_round)
+    if max_round is not None:
+        stmt = stmt.where(DraftPick.round <= max_round)
 
     res = await session.execute(stmt)
     picks: list[DraftPick] = list(res.scalars().all())
@@ -282,7 +288,7 @@ async def rankings(
 
     # 3) Aggregate
     # Each cv_map[pick_id] looks like: {"success": int, "bust": int, "total": int, ...}
-    agg = defaultdict(lambda: {"success": 0, "bust": 0, "totalVotes": 0, "draft_team": None})
+    agg = defaultdict(lambda: {"success": 0, "bust": 0, "totalVotes": 0, "draft_team": None, "round": None, "overall": None})
 
     for p in picks:
         cv = cv_map.get(p.id) or {"success": 0, "bust": 0, "total": 0}
@@ -293,6 +299,8 @@ async def rankings(
             key = p.player.full_name if p.player else str(p.player_id)
             if agg[key]["draft_team"] is None:
                 agg[key]["draft_team"] = p.team.abbrev if p.team else None
+                agg[key]["round"] = p.round
+                agg[key]["overall"] = p.overall
 
         agg[key]["success"] += int(cv.get("success", 0) or 0)
         agg[key]["bust"] += int(cv.get("bust", 0) or 0)
@@ -314,18 +322,24 @@ async def rankings(
         }
         if group_by == "player":
             item["draft_team"] = v.get("draft_team")
+            item["round"] = v.get("round")
+            item["overall"] = v.get("overall")
         items.append(item)
 
     # 5) Sort + limit
-    # best: higher ratio first; worst: lower ratio first
-    # push None ratios to bottom always
-    def sort_key(it: dict):
-        r = it["ratio"]
-        none_flag = 1 if r is None else 0
-        # for stable ordering, also use votes desc
-        return (none_flag, r if r is not None else 0.0, -it["totalVotes"])
+    if sort == "most_voted":
+        items.sort(key=lambda it: -it["totalVotes"])
+    elif sort == "controversial":
+        # closest to 50/50 first; push None ratios to bottom
+        items.sort(key=lambda it: abs(it["ratio"] - 0.5) if it["ratio"] is not None else 1.0)
+    else:
+        # best / worst: higher or lower ratio first, None ratios to bottom
+        def ratio_sort_key(it: dict):
+            r = it["ratio"]
+            none_flag = 1 if r is None else 0
+            return (none_flag, r if r is not None else 0.0, -it["totalVotes"])
+        items.sort(key=ratio_sort_key, reverse=(sort == "best"))
 
-    items.sort(key=sort_key, reverse=(sort == "best"))
     items = items[:limit]
 
     return {
