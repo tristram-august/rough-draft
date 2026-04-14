@@ -870,18 +870,11 @@ export default function DraftBoardPage() {
         onToggle={() => setRankingsPanelOpen((o) => !o)}
       />
       <div className="mx-auto max-w-5xl px-4 py-8">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <div className="text-xs text-slate-500">Rough Draft</div>
-            <h1 className="text-2xl font-semibold">Draft Board</h1>
-            <div className="mt-1 text-sm text-slate-400">Vote Success/Bust and explore careers.</div>
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            <div className="flex flex-col gap-1">
+        <div className="flex gap-3">
+            <div className="flex flex-1 flex-col gap-1">
               <label className="text-xs text-slate-500">Year</label>
               <select
-                className="rounded-2xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-sm"
+                className="w-full rounded-2xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-sm"
                 value={year}
                 onChange={(e) => setYear(Number(e.target.value))}
               >
@@ -893,10 +886,10 @@ export default function DraftBoardPage() {
               </select>
             </div>
 
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-1 flex-col gap-1">
               <label className="text-xs text-slate-500">Round</label>
               <select
-                className="rounded-2xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-sm"
+                className="w-full rounded-2xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-sm"
                 value={round ?? ""}
                 onChange={(e) => setRound(e.target.value ? Number(e.target.value) : null)}
               >
@@ -909,10 +902,10 @@ export default function DraftBoardPage() {
               </select>
             </div>
 
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-2 flex-col gap-1">
               <label className="text-xs text-slate-500">Team</label>
               <select
-                className="rounded-2xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-sm"
+                className="w-full rounded-2xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-sm"
                 value={team}
                 onChange={(e) => setTeam(e.target.value)}
               >
@@ -925,10 +918,10 @@ export default function DraftBoardPage() {
               </select>
             </div>
 
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-1 flex-col gap-1">
               <label className="text-xs text-slate-500">Pos</label>
               <select
-                className="rounded-2xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-sm"
+                className="w-full rounded-2xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-sm"
                 value={pos}
                 onChange={(e) => setPos(e.target.value)}
               >
@@ -941,16 +934,15 @@ export default function DraftBoardPage() {
               </select>
             </div>
 
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-2 flex-col gap-1">
               <label className="text-xs text-slate-500">Search</label>
               <input
-                className="rounded-2xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-sm"
+                className="w-full rounded-2xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-sm"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="Name / college…"
               />
             </div>
-          </div>
         </div>
 
         <div className="mt-6 flex items-center justify-between">

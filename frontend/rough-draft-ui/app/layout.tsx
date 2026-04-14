@@ -14,27 +14,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Providers>
           <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900 text-slate-100">
             <header className="sticky top-0 z-20 border-b border-slate-800 bg-slate-950/70 backdrop-blur">
-              <div className="mx-auto max-w-5xl px-4 py-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-xl border border-slate-800 bg-slate-900/40 shadow-sm flex items-center justify-center font-semibold">
-                    RD
-                  </div>
-                  <div>
-                    <div className="text-lg font-semibold leading-tight">Rough Draft</div>
-                    <div className="text-xs text-slate-400">
-                      Draft board + community bust/success votes
-                    </div>
-                  </div>
-                </div>
-
-                <a
-                  className="text-sm text-slate-400 hover:text-slate-100"
-                  href="http://localhost:8000/docs"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  API Docs
-                </a>
+              <div className="mx-auto max-w-5xl px-4 py-4 flex items-center justify-center">
+                <div className="text-2xl font-bold tracking-tight">Rough Draft</div>
               </div>
             </header>
 
