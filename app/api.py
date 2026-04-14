@@ -146,13 +146,14 @@ async def player_detail(
         raise HTTPException(status_code=404, detail="Player not found")
 
     return PlayerDetail(
-        player={
-            "id": player.id,
-            "full_name": player.full_name,
-            "position": player.position,
-            "college": player.college,
-            "birthdate": player.birthdate,
-        },
+        player=PlayerOut(
+            id=player.id,
+            full_name=player.full_name,
+            position=player.position,
+            college=player.college,
+            birthdate=player.birthdate,
+            gsis_id=player.gsis_id,
+        ),
         draft_picks=[pick_to_board_row(p) for p in picks],
         season_stats=[
             PlayerSeasonStatOut(
@@ -737,3 +738,5 @@ async def player_drawer(
             "position_aware_notables": True,
         },
     }
+
+

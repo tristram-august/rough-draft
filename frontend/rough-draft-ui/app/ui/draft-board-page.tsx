@@ -382,13 +382,18 @@ function Row({
 }) {
   const cv = row.community_votes ?? null;
 
+  const [hovered, setHovered] = React.useState(false);
+  const color = teamColor(row.team.abbrev);
+
   return (
     <div
       className="rounded-2xl border transition-colors px-4 py-3"
       style={{
-        backgroundColor: teamColor(row.team.abbrev) + "AA",
-        borderColor: teamColor(row.team.abbrev),
+        backgroundColor: color + (hovered ? "CC" : "AA"),
+        borderColor: color,
       }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
       <div className="flex items-center gap-4">
         {/* Main click target (opens drawer) */}
@@ -1041,21 +1046,38 @@ export default function DraftBoardPage() {
         ) : pickQuery.data ? (
           <div className="space-y-5">
             <div className="rounded-3xl border border-slate-800 bg-slate-900/30 p-5">
-              <div className="text-xs text-slate-500">
-                {pickQuery.data.year} • Round {pickQuery.data.round} • Pick {pickQuery.data.pick_in_round}
-              </div>
-              <div className="mt-2 text-xl font-semibold text-slate-100">{pickQuery.data.player.full_name}</div>
+              <div className="flex gap-4">
+                {/* Headshot */}
+                {drawerQuery.data?.player.headshot ? (
+                  <img
+                    src={drawerQuery.data.player.headshot}
+                    alt={pickQuery.data.player.full_name}
+                    className="h-24 w-24 shrink-0 rounded-2xl object-cover object-top border border-slate-700"
+                  />
+                ) : (
+                  <div className="h-24 w-24 shrink-0 rounded-2xl border border-slate-700 bg-slate-800 flex items-center justify-center text-3xl text-slate-500">
+                    ?
+                  </div>
+                )}
 
-              <div className="mt-3 flex flex-wrap gap-2">
-                <Pill variant={posVariant(pickQuery.data.player.position)}>{pickQuery.data.player.position}</Pill>
-                {pickQuery.data.player.college ? (
-                  <span className="inline-flex items-center rounded-full border border-slate-700 bg-slate-950 px-2 py-0.5 text-xs text-slate-300">
-                    {pickQuery.data.player.college}
-                  </span>
-                ) : null}
-                <span className="inline-flex items-center rounded-full border border-slate-700 bg-slate-950 px-2 py-0.5 text-xs text-slate-300">
-                  {pickQuery.data.team.abbrev} — {pickQuery.data.team.city} {pickQuery.data.team.name}
-                </span>
+                {/* Player info */}
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs text-slate-500">
+                    {pickQuery.data.year} • Round {pickQuery.data.round} • Pick {pickQuery.data.pick_in_round}
+                  </div>
+                  <div className="mt-1 text-xl font-semibold text-slate-100 leading-tight">{pickQuery.data.player.full_name}</div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Pill variant={posVariant(pickQuery.data.player.position)}>{pickQuery.data.player.position}</Pill>
+                    {pickQuery.data.player.college ? (
+                      <span className="inline-flex items-center rounded-full border border-slate-700 bg-slate-950 px-2 py-0.5 text-xs text-slate-300">
+                        {pickQuery.data.player.college}
+                      </span>
+                    ) : null}
+                    <span className="inline-flex items-center rounded-full border border-slate-700 bg-slate-950 px-2 py-0.5 text-xs text-slate-300">
+                      {pickQuery.data.team.abbrev} — {pickQuery.data.team.city} {pickQuery.data.team.name}
+                    </span>
+                  </div>
+                </div>
               </div>
 
               <div className="mt-5 flex items-center justify-between gap-3">
