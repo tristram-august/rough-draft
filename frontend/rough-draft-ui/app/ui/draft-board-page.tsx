@@ -23,6 +23,7 @@ type DraftBoardRow = {
   round: number;
   pick_in_round: number;
   overall: number;
+  voting_locked: boolean;
   team: { abbrev: string; city: string; name: string };
   player: { full_name: string; position: string; college?: string | null; gsis_id?: string | null };
   outcome?: { label: string } | null;
@@ -36,6 +37,7 @@ type PickDetail = {
   round: number;
   pick_in_round: number;
   overall: number;
+  voting_locked: boolean;
   team: { abbrev: string; city: string; name: string };
   player: { full_name: string; position: string; college?: string | null; gsis_id?: string | null };
   community_votes?: CommunityVotesOut | null;
@@ -217,25 +219,25 @@ function Drawer({
   return (
     <>
       <div
-        className={`fixed inset-0 bg-black/50 transition-opacity ${open ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+        className={`fixed inset-0 z-30 bg-black/50 transition-opacity ${open ? "opacity-100" : "opacity-0 pointer-events-none"}`}
         onClick={onClose}
       />
       <aside
-        className={`fixed top-0 right-0 h-full w-full max-w-xl border-l border-slate-800 bg-slate-950 text-slate-100 shadow-2xl transition-transform ${
+        className={`fixed top-0 right-0 h-full w-full sm:max-w-xl z-30 border-l border-slate-800 bg-slate-950 text-slate-100 shadow-2xl transition-transform ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        <div className="p-4 border-b border-slate-800 flex items-start justify-between gap-3">
-          <div>
+        <div className="p-4 border-b border-slate-800 flex items-center justify-between gap-3">
+          <div className="flex-1 min-w-0">
             <div className="text-xs text-slate-500">Pick Detail</div>
-            <div className="text-lg font-semibold leading-tight text-slate-100">{title}</div>
+            <div className="text-lg font-semibold leading-tight text-slate-100 truncate">{title}</div>
           </div>
           <button
-            className="rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-1.5 text-sm hover:bg-slate-800/60"
+            className="shrink-0 rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-slate-800/80 active:bg-slate-700 transition-colors"
             onClick={onClose}
             type="button"
           >
-            Close
+            ← Close
           </button>
         </div>
         <div className="p-4 overflow-auto h-[calc(100%-65px)]">{children}</div>
@@ -252,6 +254,12 @@ function authHeaders(token?: string | null): Record<string, string> {
   const h: Record<string, string> = { "X-Client-Id": getClientId() };
   if (token) h["Authorization"] = `Bearer ${token}`;
   return h;
+}
+
+async function fetchDraftTeams(year: number): Promise<Array<{ abbrev: string; city: string; name: string }>> {
+  const res = await fetch(`${API_BASE}/draft/teams?year=${year}`, { cache: "no-store" });
+  if (!res.ok) return [];
+  return res.json();
 }
 
 async function fetchDraftBoard(args: {
@@ -305,12 +313,13 @@ async function postVote(year: number, overall: number, value: "success" | "bust"
   return res.json();
 }
 
-async function fetchDrawer(gsisId: string, draftTeam: string, team?: string | null): Promise<DrawerResponse> {
+async function fetchDrawer(gsisId: string, draftTeam: string, team?: string | null): Promise<DrawerResponse | null> {
   const url = new URL(`${API_BASE}/player/${gsisId}/drawer`);
   url.searchParams.set("draft_team", draftTeam);
   if (team) url.searchParams.set("team", team);
 
   const res = await fetch(url.toString(), { cache: "no-store" });
+  if (res.status === 404) return null;
   if (!res.ok) throw new Error(`Drawer fetch failed: ${res.status}`);
   return res.json();
 }
@@ -477,12 +486,12 @@ function Row({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 sm:gap-4">
         {/* Main click target (opens drawer) */}
         <button
           type="button"
           onClick={onOpen}
-          className="flex min-w-0 flex-1 items-center gap-4 text-left"
+          className="flex min-w-0 flex-1 items-center gap-2 sm:gap-4 text-left"
           aria-label={`Open pick #${row.overall} details`}
         >
           <div className="w-16 shrink-0">
@@ -497,7 +506,7 @@ function Row({
               <div className="font-semibold text-slate-100 truncate">{row.player.full_name}</div>
               <Pill variant={posVariant(row.player.position)}>{row.player.position}</Pill>
               {row.player.college ? (
-                <span className="text-xs text-slate-400 truncate">{row.player.college}</span>
+                <span className="hidden sm:inline text-xs text-slate-400 truncate">{row.player.college}</span>
               ) : null}
             </div>
             <div className="mt-1 text-xs text-slate-500">
@@ -508,10 +517,10 @@ function Row({
         </button>
 
         {/* Right column: score + mini buttons + bar */}
-        <div className="w-44 shrink-0">
+        <div className="w-32 sm:w-44 shrink-0">
           <div className="flex items-center justify-end gap-2">
             <ScoreBadge cv={cv} />
-            <MiniVoteButtons yourVote={row.your_vote ?? null} disabled={isVoting} onVote={onVote} />
+            <MiniVoteButtons yourVote={row.your_vote ?? null} disabled={isVoting || row.voting_locked} onVote={onVote} />
           </div>
           <VoteBar cv={cv} />
         </div>
@@ -871,7 +880,7 @@ function CommentsSection({ year, overall }: { year: number; overall: number }) {
   const [submitting, setSubmitting] = React.useState(false);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
 
-  async function handlePost(e: React.FormEvent) {
+  async function handlePost(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!token || !body.trim()) return;
     setSubmitting(true);
@@ -920,7 +929,7 @@ function CommentsSection({ year, overall }: { year: number; overall: number }) {
                   <span className="text-[10px] text-slate-600">
                     {new Date(c.created_at).toLocaleDateString()}
                   </span>
-                  {user?.user_id === c.user_id && (
+                  {(user?.user_id === c.user_id || user?.is_mod) && (
                     <button
                       type="button"
                       onClick={() => handleDelete(c.id)}
@@ -1120,8 +1129,8 @@ function pickKey(year: number, overall: number): string {
 export default function DraftBoardPage() {
   const PAGE_SIZE = 32;
 
-  const years = React.useMemo(() => Array.from({ length: 26 }, (_, i) => 2000 + i), []);
-  const mostRecentYear = years[years.length - 1];
+  const years = React.useMemo(() => Array.from({ length: 27 }, (_, i) => 2000 + i), []);
+  const mostRecentYear = 2025;
 
   const [year, setYear] = React.useState<number>(mostRecentYear);
   const [round, setRound] = React.useState<number | null>(null);
@@ -1168,12 +1177,14 @@ export default function DraftBoardPage() {
     enabled: !!selected,
   });
 
-  const uniqueTeams = React.useMemo(() => {
-    const rows = boardQuery.data ?? [];
-    const map = new Map<string, string>();
-    rows.forEach((r) => map.set(r.team.abbrev, `${r.team.abbrev} — ${r.team.city} ${r.team.name}`));
-    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-  }, [boardQuery.data]);
+  const teamsQuery = useQuery({
+    queryKey: ["draft-teams", year],
+    queryFn: () => fetchDraftTeams(year),
+    staleTime: 60_000,
+  });
+  const uniqueTeams: Array<[string, string]> = (teamsQuery.data ?? []).map(
+    (t) => [t.abbrev, `${t.abbrev} — ${t.city} ${t.name}`]
+  );
 
   const uniquePositions = React.useMemo(() => {
     const rows = boardQuery.data ?? [];
@@ -1230,8 +1241,8 @@ export default function DraftBoardPage() {
         onToggle={() => setRankingsPanelOpen((o) => !o)}
       />
       <div className="mx-auto max-w-5xl px-4 py-8">
-        <div className="flex gap-3">
-            <div className="flex flex-1 flex-col gap-1">
+        <div className="grid grid-cols-2 sm:flex gap-3">
+            <div className="flex flex-col gap-1 sm:flex-1">
               <label className="text-xs text-slate-500">Year</label>
               <select
                 className="w-full rounded-2xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-sm"
@@ -1246,7 +1257,7 @@ export default function DraftBoardPage() {
               </select>
             </div>
 
-            <div className="flex flex-1 flex-col gap-1">
+            <div className="flex flex-col gap-1 sm:flex-1">
               <label className="text-xs text-slate-500">Round</label>
               <select
                 className="w-full rounded-2xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-sm"
@@ -1262,7 +1273,7 @@ export default function DraftBoardPage() {
               </select>
             </div>
 
-            <div className="flex flex-2 flex-col gap-1">
+            <div className="flex flex-col gap-1 sm:flex-[2]">
               <label className="text-xs text-slate-500">Team</label>
               <select
                 className="w-full rounded-2xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-sm"
@@ -1278,7 +1289,7 @@ export default function DraftBoardPage() {
               </select>
             </div>
 
-            <div className="flex flex-1 flex-col gap-1">
+            <div className="flex flex-col gap-1 sm:flex-1">
               <label className="text-xs text-slate-500">Pos</label>
               <select
                 className="w-full rounded-2xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-sm"
@@ -1294,7 +1305,7 @@ export default function DraftBoardPage() {
               </select>
             </div>
 
-            <div className="flex flex-2 flex-col gap-1">
+            <div className="col-span-2 flex flex-col gap-1 sm:flex-[2]">
               <label className="text-xs text-slate-500">Search</label>
               <input
                 className="w-full rounded-2xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-sm"
@@ -1417,8 +1428,16 @@ export default function DraftBoardPage() {
                 {(() => {
                   const yourVote = pickQuery.data.your_vote?.value ?? null;
                   const isVoting = votingKeys.has(pickKey(pickQuery.data.year, pickQuery.data.overall));
+                  const locked = pickQuery.data.voting_locked;
                   const bustActive = yourVote === "bust";
                   const successActive = yourVote === "success";
+                  if (locked) {
+                    return (
+                      <div className="rounded-2xl border border-slate-800 bg-slate-900/30 px-4 py-3 text-center text-xs text-slate-500">
+                        Voting opens after this class completes their first season
+                      </div>
+                    );
+                  }
                   return (
                     <div className="flex gap-2">
                       <button
@@ -1484,6 +1503,8 @@ export default function DraftBoardPage() {
                       {String(drawerQuery.error)}
                     </pre>
                   </div>
+                ) : drawerQuery.data === null ? (
+                  <div className="text-sm text-slate-500">No stats available yet — check back after the season.</div>
                 ) : drawerQuery.data ? (
                   <>
                     <DrawerTabView
@@ -1494,9 +1515,7 @@ export default function DraftBoardPage() {
                       <OLDrawerView stats={drawerQuery.data.ol_stats ?? []} selectedTeam={selectedTeam} />
                     )}
                   </>
-                ) : (
-                  <div className="text-sm text-slate-500">No stats available.</div>
-                )}
+                ) : null}
               </div>
             </div>
             {selected && (

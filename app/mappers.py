@@ -2,6 +2,11 @@ from __future__ import annotations
 
 from app.models import DraftPick, Team
 from app.schemas import DraftBoardRow, OutcomeOut, PickDetail, PlayerOut, TeamOut
+from app.settings import settings
+
+
+def _voting_locked(year: int) -> bool:
+    return year >= settings.voting_lock_from_year
 
 
 def team_out(team: Team) -> TeamOut:
@@ -21,6 +26,7 @@ def pick_to_board_row(pick: DraftPick, traded_from_team: Team | None = None) -> 
         round=pick.round,
         overall=pick.overall,
         pick_in_round=pick.pick_in_round,
+        voting_locked=_voting_locked(pick.year),
         team=team_out(pick.team),
         player=PlayerOut(
             id=pick.player.id,
@@ -49,6 +55,7 @@ def pick_to_detail(pick: DraftPick, traded_from_team: Team | None = None) -> Pic
         round=row.round,
         overall=row.overall,
         pick_in_round=row.pick_in_round,
+        voting_locked=row.voting_locked,
         team=row.team,
         player=row.player,
         traded_from_team=row.traded_from_team,

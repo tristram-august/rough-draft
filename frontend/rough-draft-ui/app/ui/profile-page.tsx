@@ -48,7 +48,7 @@ async function fetchProfile(username: string, votesOffset: number, commentsOffse
 }
 
 function VoteChip({ value }: { value: "success" | "bust" }) {
-  const base = "inline-flex w-20 items-center justify-center gap-1 rounded-full border px-2 py-0.5 text-[11px] shrink-0";
+  const base = "inline-flex shrink-0 items-center justify-center gap-1 rounded-full border px-2 py-0.5 text-[11px]";
   return value === "success"
     ? <span className={`${base} border-emerald-800/50 bg-emerald-950/40 text-emerald-300`}>✅ Success</span>
     : <span className={`${base} border-red-800/50 bg-red-950/40 text-red-300`}>❌ Bust</span>;
@@ -61,10 +61,10 @@ function PickCard({ year, overall, round, pick_in_round, player_name, team_abbre
   const color = teamColor(team_abbrev);
   return (
     <div className="rounded-xl border px-3 py-2" style={{ backgroundColor: color + "33", borderColor: color + "88" }}>
-      <div className="flex items-center gap-2">
-        <span className="font-mono text-xs text-slate-400">#{overall}</span>
-        <span className="text-sm font-medium text-slate-100">{player_name}</span>
-        <span className="text-xs text-slate-400">{team_abbrev}</span>
+      <div className="flex items-center gap-2 min-w-0">
+        <span className="font-mono text-xs text-slate-400 shrink-0">#{overall}</span>
+        <span className="text-sm font-medium text-slate-100 truncate">{player_name}</span>
+        <span className="text-xs text-slate-400 shrink-0">{team_abbrev}</span>
       </div>
       <div className="text-[10px] text-slate-500 mt-0.5">{year} · R{round}P{pick_in_round}</div>
     </div>
@@ -163,10 +163,10 @@ export default function ProfilePage({ username }: { username: string }) {
                 key={key}
                 type="button"
                 onClick={() => changeFilter(key)}
-                className="rounded-2xl border px-4 py-3 text-center transition-colors"
+                className="rounded-2xl border px-3 py-2 sm:px-4 sm:py-3 text-center transition-colors"
                 style={isActive ? activeStyle : { borderColor: "#1e293b", backgroundColor: "rgba(15,23,42,0.4)" }}
               >
-                <div className="text-xl font-bold text-slate-100">{count}</div>
+                <div className="text-lg sm:text-xl font-bold text-slate-100">{count}</div>
                 <div className="text-[10px] text-slate-500 mt-0.5">{label}</div>
               </button>
             );
@@ -174,10 +174,10 @@ export default function ProfilePage({ username }: { username: string }) {
           <button
             type="button"
             onClick={() => setTab("comments")}
-            className="rounded-2xl border px-4 py-3 text-center transition-colors"
+            className="rounded-2xl border px-3 py-2 sm:px-4 sm:py-3 text-center transition-colors"
             style={tab === "comments" ? { borderColor: "#94a3b8", backgroundColor: "#1e293b" } : { borderColor: "#1e293b", backgroundColor: "rgba(15,23,42,0.4)" }}
           >
-            <div className="text-xl font-bold text-slate-100">{profile.total_comments}</div>
+            <div className="text-lg sm:text-xl font-bold text-slate-100">{profile.total_comments}</div>
             <div className="text-[10px] text-slate-500 mt-0.5">Comments</div>
           </button>
         </div>

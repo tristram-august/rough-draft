@@ -1,15 +1,19 @@
 from __future__ import annotations
 
+import secrets
 from collections import defaultdict
+from datetime import datetime, timezone, timedelta
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Header, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Header, Request
 from sqlalchemy import select, func, and_, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from app.auth import create_access_token, get_current_user, get_optional_user, hash_password, verify_password
+from app.email import send_verification_email, send_reset_email
 from app.limiter import limiter
+from app.settings import settings
 from app.db import db_session
 from app.mappers import pick_to_board_row, pick_to_detail, team_out
 from app.models import Comment, DraftPick, OLSeasonStat, PickVote, Player, Team, User, PlayerDim, PlayerGameStat
@@ -19,6 +23,7 @@ from app.schemas import (
     CommentIn,
     CommentOut,
     DraftBoardRow,
+    ForgotPasswordIn,
     LoginIn,
     PickDetail,
     PlayerDetail,
@@ -27,8 +32,10 @@ from app.schemas import (
     ProfileVoteOut,
     ProfileCommentOut,
     RegisterIn,
+    ResetPasswordIn,
     OLSeasonStatOut,
     TeamDraftClass,
+    TeamOut,
     TokenOut,
     VoteIn,
     CommunityVotesOut,
@@ -58,6 +65,21 @@ def _anon_voter_key(x_client_id: str | None) -> str | None:
     if len(x_client_id) < 8 or len(x_client_id) > 64:
         return None
     return x_client_id
+
+
+@router.get("/draft/teams", response_model=list[TeamOut])
+async def draft_teams(
+    year: int = Query(..., ge=1936, le=2100),
+    session: AsyncSession = Depends(db_session),
+) -> list[TeamOut]:
+    res = await session.execute(
+        select(Team)
+        .join(DraftPick, DraftPick.team_id == Team.id)
+        .where(DraftPick.year == year)
+        .distinct()
+        .order_by(Team.abbrev)
+    )
+    return [team_out(t) for t in res.scalars().all()]
 
 
 @router.get("/draft", response_model=list[DraftBoardRow])
@@ -213,6 +235,9 @@ async def vote_on_pick(
     current_user: User | None = Depends(get_optional_user),
     session: AsyncSession = Depends(db_session),
 ) -> CommunityVotesOut:
+    if year >= settings.voting_lock_from_year:
+        raise HTTPException(status_code=403, detail="Voting is not yet open for this draft class")
+
     # Prefer user-linked vote when logged in; fall back to anonymous
     if current_user:
         voter_type = "user"
@@ -756,25 +781,34 @@ async def _build_tab(session: AsyncSession, gsis_id: str, draft_team: str, scope
 
 @router.post("/auth/register", response_model=TokenOut, status_code=201)
 @limiter.limit("5/minute")
-async def register(request: Request, payload: RegisterIn, session: AsyncSession = Depends(db_session)) -> TokenOut:
+async def register(
+    request: Request,
+    payload: RegisterIn,
+    background_tasks: BackgroundTasks,
+    session: AsyncSession = Depends(db_session),
+) -> TokenOut:
     existing = await session.execute(
         select(User).where((User.username == payload.username) | (User.email == payload.email))
     )
     if existing.scalars().first():
         raise HTTPException(status_code=409, detail="Username or email already taken")
 
+    verify_token = secrets.token_urlsafe(32)
     user = User(
         username=payload.username,
         email=payload.email,
         hashed_password=hash_password(payload.password),
+        verify_token=verify_token,
     )
     session.add(user)
-    await session.flush()  # get user.id
+    await session.flush()
     await session.commit()
     await session.refresh(user)
 
+    background_tasks.add_task(send_verification_email, user.email, verify_token)
+
     token = create_access_token(user.id, user.username)
-    return TokenOut(access_token=token, user_id=user.id, username=user.username)
+    return TokenOut(access_token=token, user_id=user.id, username=user.username, is_mod=user.is_mod, email_verified=user.email_verified)
 
 
 @router.post("/auth/login", response_model=TokenOut)
@@ -786,12 +820,77 @@ async def login(request: Request, payload: LoginIn, session: AsyncSession = Depe
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
     token = create_access_token(user.id, user.username)
-    return TokenOut(access_token=token, user_id=user.id, username=user.username)
+    return TokenOut(access_token=token, user_id=user.id, username=user.username, is_mod=user.is_mod, email_verified=user.email_verified)
 
 
 @router.get("/auth/me")
 async def me(current_user: User = Depends(get_current_user)) -> dict:
-    return {"user_id": current_user.id, "username": current_user.username, "email": current_user.email}
+    return {"user_id": current_user.id, "username": current_user.username, "email": current_user.email, "is_mod": current_user.is_mod, "email_verified": current_user.email_verified}
+
+
+@router.get("/auth/verify-email", status_code=200)
+async def verify_email(token: str = Query(...), session: AsyncSession = Depends(db_session)) -> dict:
+    res = await session.execute(select(User).where(User.verify_token == token))
+    user = res.scalars().first()
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid or expired verification link")
+    user.email_verified = True
+    user.verify_token = None
+    await session.commit()
+    return {"message": "Email verified"}
+
+
+@router.post("/auth/resend-verification", status_code=202)
+@limiter.limit("3/minute")
+async def resend_verification(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(db_session),
+) -> dict:
+    if current_user.email_verified:
+        return {"message": "Already verified"}
+    verify_token = secrets.token_urlsafe(32)
+    current_user.verify_token = verify_token
+    await session.commit()
+    background_tasks.add_task(send_verification_email, current_user.email, verify_token)
+    return {"message": "Verification email sent"}
+
+
+@router.post("/auth/forgot-password", status_code=202)
+@limiter.limit("3/minute")
+async def forgot_password(
+    request: Request,
+    payload: ForgotPasswordIn,
+    background_tasks: BackgroundTasks,
+    session: AsyncSession = Depends(db_session),
+) -> dict:
+    res = await session.execute(select(User).where(User.email == payload.email))
+    user = res.scalars().first()
+    # Always return success — don't reveal whether the email exists
+    if user:
+        reset_token = secrets.token_urlsafe(32)
+        user.reset_token = reset_token
+        user.reset_token_expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
+        await session.commit()
+        background_tasks.add_task(send_reset_email, user.email, reset_token)
+    return {"message": "If that email is registered you'll receive a reset link shortly"}
+
+
+@router.post("/auth/reset-password", status_code=200)
+async def reset_password(payload: ResetPasswordIn, session: AsyncSession = Depends(db_session)) -> dict:
+    now = datetime.now(timezone.utc)
+    res = await session.execute(
+        select(User).where(User.reset_token == payload.token, User.reset_token_expires_at > now)
+    )
+    user = res.scalars().first()
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset link")
+    user.hashed_password = hash_password(payload.new_password)
+    user.reset_token = None
+    user.reset_token_expires_at = None
+    await session.commit()
+    return {"message": "Password updated"}
 
 
 @router.post("/auth/claim-anon-votes")
@@ -983,7 +1082,7 @@ async def delete_comment(
     comment = res.scalars().first()
     if not comment:
         raise HTTPException(status_code=404, detail="Comment not found")
-    if comment.user_id != current_user.id:
+    if comment.user_id != current_user.id and not current_user.is_mod:
         raise HTTPException(status_code=403, detail="Not your comment")
     await session.delete(comment)
     await session.commit()

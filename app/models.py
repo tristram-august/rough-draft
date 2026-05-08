@@ -15,7 +15,7 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-from sqlalchemy import DateTime, Enum as SAEnum, func, Boolean, Float, UniqueConstraint
+from sqlalchemy import DateTime, func, Boolean, Float, UniqueConstraint
 import enum
 
 
@@ -348,6 +348,11 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(32), unique=True, index=True, nullable=False)
     email: Mapped[str] = mapped_column(String(128), unique=True, index=True, nullable=False)
     hashed_password: Mapped[str] = mapped_column(String(128), nullable=False)
+    is_mod: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    email_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    verify_token: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    reset_token: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    reset_token_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     comments: Mapped[list["Comment"]] = relationship(back_populates="author")

@@ -24,7 +24,7 @@ def create_app() -> FastAPI:
         allow_origins=[o.strip() for o in settings.cors_origins.split(",") if o.strip()],
         allow_credentials=False,
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allow_headers=["Authorization", "Content-Type"],
+        allow_headers=["*"],
     )
 
     app.include_router(router, prefix="/api")

@@ -35,6 +35,7 @@ class DraftBoardRow(BaseModel):
     round: int
     overall: int
     pick_in_round: int
+    voting_locked: bool = False
 
     team: TeamOut
     player: PlayerOut
@@ -49,6 +50,7 @@ class PickDetail(BaseModel):
     round: int
     overall: int
     pick_in_round: int
+    voting_locked: bool = False
     team: TeamOut
     player: PlayerOut
     traded_from_team: TeamOut | None = None
@@ -130,11 +132,22 @@ class LoginIn(BaseModel):
     password: str
 
 
+class ForgotPasswordIn(BaseModel):
+    email: str = Field(min_length=5, max_length=128)
+
+
+class ResetPasswordIn(BaseModel):
+    token: str
+    new_password: str = Field(min_length=8, max_length=128)
+
+
 class TokenOut(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user_id: int
     username: str
+    is_mod: bool = False
+    email_verified: bool = False
 
 
 # ── Comments ──────────────────────────────────────────────────────────────────

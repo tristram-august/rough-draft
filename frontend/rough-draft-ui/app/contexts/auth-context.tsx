@@ -4,7 +4,7 @@ import * as React from "react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api";
 
-export type AuthUser = { user_id: number; username: string };
+export type AuthUser = { user_id: number; username: string; is_mod: boolean; email_verified: boolean };
 
 type AuthState = {
   user: AuthUser | null;
@@ -73,7 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error(err.detail ?? "Login failed");
     }
     const data = await res.json();
-    persist(data.access_token, { user_id: data.user_id, username: data.username });
+    persist(data.access_token, { user_id: data.user_id, username: data.username, is_mod: data.is_mod ?? false, email_verified: data.email_verified ?? false });
   }
 
   async function register(username: string, email: string, password: string) {
@@ -87,7 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error(err.detail ?? "Registration failed");
     }
     const data = await res.json();
-    persist(data.access_token, { user_id: data.user_id, username: data.username });
+    persist(data.access_token, { user_id: data.user_id, username: data.username, is_mod: data.is_mod ?? false, email_verified: data.email_verified ?? false });
   }
 
   return (
