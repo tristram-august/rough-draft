@@ -5,6 +5,8 @@ import Link from "next/link";
 import { createPortal } from "react-dom";
 import { useAuth } from "../contexts/auth-context";
 
+import { extractError } from "../lib/extract-error";
+
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api";
 
 type ModalMode = "login" | "register" | "forgot" | "forgot-sent";
@@ -49,7 +51,10 @@ export function AuthButton() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email }),
         });
-        if (!res.ok) throw new Error("Something went wrong");
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(extractError(data, "Something went wrong"));
+        }
         setMode("forgot-sent");
       }
     } catch (err: any) {

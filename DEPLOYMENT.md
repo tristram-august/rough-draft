@@ -121,6 +121,52 @@ openssl rand -hex 32
 
 ---
 
+## Railway Deployment
+
+### First time setup
+
+1. Go to [railway.app](https://railway.app) → New Project → Deploy from GitHub repo
+2. Add a **Postgres** plugin to the project
+3. Create two services from the same repo:
+   - **API service** — root directory `/`, Railway will use the `Dockerfile`
+   - **Frontend service** — root directory `frontend/rough-draft-ui`, Railway auto-detects Next.js
+
+4. Set environment variables on the **API service**:
+   ```
+   APP_ENV=production
+   SECRET_KEY=<openssl rand -hex 32>
+   DATABASE_URL=<copy from Postgres plugin — use the Internal URL>
+   CORS_ORIGINS=https://<your-frontend-domain>.up.railway.app
+   APP_URL=https://<your-frontend-domain>.up.railway.app
+   VOTING_LOCK_FROM_YEAR=2026
+   SMTP_HOST=<your smtp host>
+   SMTP_PORT=587
+   SMTP_USER=<your smtp user>
+   SMTP_PASSWORD=<your smtp password>
+   SMTP_FROM=noreply@yourdomain.com
+   ```
+
+5. Set environment variables on the **Frontend service**:
+   ```
+   NEXT_PUBLIC_API_BASE_URL=https://<your-api-domain>.up.railway.app/api
+   ```
+
+6. Deploy both services — the API start script runs migrations automatically on every deploy
+
+7. Run data ingestion once from your local machine using Railway's DATABASE_URL:
+   ```bash
+   # Set DATABASE_URL to Railway's external Postgres URL, then:
+   python scripts/ingest_csvs.py --csv-dir data/drafts/
+   python scripts/ingest_players_nfl.py
+   python scripts/ingest_player_stats_subset.py
+   # OL stats (repeat for each year):
+   python scripts/ingest_ol_stats.py data/ol_stats/offense_blocking_2025.csv --season 2025
+   ```
+
+> After both services deploy, update `CORS_ORIGINS` and `APP_URL` on the API if the frontend URL wasn't known at first deploy.
+
+---
+
 ## Local Dev Quick Start
 
 ```bash

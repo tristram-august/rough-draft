@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { extractError } from "../lib/extract-error";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api";
 
@@ -70,7 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail ?? "Login failed");
+      throw new Error(extractError(err, "Login failed"));
     }
     const data = await res.json();
     persist(data.access_token, { user_id: data.user_id, username: data.username, is_mod: data.is_mod ?? false, email_verified: data.email_verified ?? false });
@@ -84,7 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail ?? "Registration failed");
+      throw new Error(extractError(err, "Registration failed"));
     }
     const data = await res.json();
     persist(data.access_token, { user_id: data.user_id, username: data.username, is_mod: data.is_mod ?? false, email_verified: data.email_verified ?? false });
