@@ -19,6 +19,8 @@ services:
       APP_ENV: dev
       APP_DEBUG: "true"
       PYTHONPATH: /app
+      SECRET_KEY: dev-secret-change-in-production
+      CORS_ORIGINS: "http://localhost:3000"
     ports:
       - "8000:8000"
     depends_on:

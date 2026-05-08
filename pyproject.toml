@@ -12,6 +12,11 @@ dependencies = [
   "asyncpg>=0.29",
   "alembic>=1.13",
   "python-dateutil>=2.9",
+  "PyJWT>=2.8",
+  "passlib[bcrypt]>=1.7",
+  "bcrypt>=3.2,<4.0",
+  "python-multipart>=0.0.9",
+  "slowapi>=0.1.9",
 ]
 
 [tool.uvicorn]

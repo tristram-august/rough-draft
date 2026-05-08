@@ -311,3 +311,62 @@ class PlayerGameStat(Base):
         Index("ix_pgs_player_season", "player_gsis_id", "season"),
         Index("ix_pgs_player_team_season", "player_gsis_id", "team", "season"),
     )
+
+
+class OLSeasonStat(Base):
+    """Season-level OL blocking stats from PFF."""
+    __tablename__ = "ol_season_stat"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    player_id: Mapped[int] = mapped_column(ForeignKey("player.id"), index=True)
+    pff_player_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    season: Mapped[int] = mapped_column(Integer, index=True)
+    position: Mapped[str | None] = mapped_column(String(4), nullable=True)
+    team_abbrev: Mapped[str | None] = mapped_column(String(8), nullable=True)
+
+    games: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    snap_counts_offense: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    pressures_allowed: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    hurries_allowed: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    hits_allowed: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    sacks_allowed: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    pbe: Mapped[float | None] = mapped_column(Float, nullable=True)
+    pass_block_percent: Mapped[float | None] = mapped_column(Float, nullable=True)
+    penalties: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    player: Mapped["Player"] = relationship()
+
+    __table_args__ = (
+        UniqueConstraint("player_id", "season", name="uq_ol_player_season"),
+    )
+
+
+class User(Base):
+    __tablename__ = "user"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    username: Mapped[str] = mapped_column(String(32), unique=True, index=True, nullable=False)
+    email: Mapped[str] = mapped_column(String(128), unique=True, index=True, nullable=False)
+    hashed_password: Mapped[str] = mapped_column(String(128), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    comments: Mapped[list["Comment"]] = relationship(back_populates="author")
+
+
+class Comment(Base):
+    __tablename__ = "comment"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    pick_id: Mapped[int] = mapped_column(ForeignKey("draft_pick.id"), index=True, nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("user.id"), index=True, nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    author: Mapped["User"] = relationship(back_populates="comments")
+    pick: Mapped["DraftPick"] = relationship()
+
+    __table_args__ = (
+        CheckConstraint("char_length(body) >= 1", name="ck_comment_body_not_empty"),
+        Index("ix_comment_pick_created", "pick_id", "created_at"),
+    )

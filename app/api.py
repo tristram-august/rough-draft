@@ -3,22 +3,33 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Header
+from fastapi import APIRouter, Depends, HTTPException, Query, Header, Request
 from sqlalchemy import select, func, and_, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
+from app.auth import create_access_token, get_current_user, get_optional_user, hash_password, verify_password
+from app.limiter import limiter
 from app.db import db_session
 from app.mappers import pick_to_board_row, pick_to_detail, team_out
-from app.models import DraftPick, PickVote, Team, PlayerDim, PlayerGameStat
+from app.models import Comment, DraftPick, OLSeasonStat, PickVote, Player, Team, User, PlayerDim, PlayerGameStat
 from app.repo import get_pick_detail, get_player_detail, get_team_draft_class, list_draft_board
 from app.repo_votes_bulk import get_community_votes_for_picks, get_your_votes_for_picks
 from app.schemas import (
+    CommentIn,
+    CommentOut,
     DraftBoardRow,
+    LoginIn,
     PickDetail,
     PlayerDetail,
     PlayerSeasonStatOut,
+    ProfileOut,
+    ProfileVoteOut,
+    ProfileCommentOut,
+    RegisterIn,
+    OLSeasonStatOut,
     TeamDraftClass,
+    TokenOut,
     VoteIn,
     CommunityVotesOut,
     VoteOut,
@@ -59,6 +70,7 @@ async def draft_board(
     limit: int = Query(200, ge=1, le=1000),
     offset: int = Query(0, ge=0, le=100000),
     x_client_id: str | None = Header(default=None, alias="X-Client-Id"),
+    current_user: User | None = Depends(get_optional_user),
     session: AsyncSession = Depends(db_session),
 ) -> list[DraftBoardRow]:
     picks = await list_draft_board(
@@ -81,15 +93,17 @@ async def draft_board(
     pick_ids = [p.id for p in picks]
     cv_map = await get_community_votes_for_picks(session, pick_ids=pick_ids)
 
-    voter_key = _anon_voter_key(x_client_id)
     your_map: dict[int, str] = {}
-    if voter_key:
+    if current_user:
         your_map = await get_your_votes_for_picks(
-            session,
-            pick_ids=pick_ids,
-            voter_type="anon",
-            voter_key=voter_key,
+            session, pick_ids=pick_ids, voter_type="user", voter_key=str(current_user.id),
         )
+    else:
+        voter_key = _anon_voter_key(x_client_id)
+        if voter_key:
+            your_map = await get_your_votes_for_picks(
+                session, pick_ids=pick_ids, voter_type="anon", voter_key=voter_key,
+            )
 
     rows: list[DraftBoardRow] = []
     for p in picks:
@@ -110,6 +124,7 @@ async def pick_detail(
     year: int,
     overall: int,
     x_client_id: str | None = Header(default=None, alias="X-Client-Id"),
+    current_user: User | None = Depends(get_optional_user),
     session: AsyncSession = Depends(db_session),
 ) -> PickDetail:
     pick = await get_pick_detail(session, year=year, overall=overall)
@@ -126,11 +141,13 @@ async def pick_detail(
     success, bust = await get_community_votes(session, pick_id=pick.id)
     detail.community_votes = CommunityVotesOut(**community_votes_out(success, bust))
 
-    voter_key = _anon_voter_key(x_client_id)
-    if voter_key:
-        val = await get_your_vote(session, pick_id=pick.id, voter_type="anon", voter_key=voter_key)
-        if val:
-            detail.your_vote = VoteOut(value=val)
+    if current_user:
+        val = await get_your_vote(session, pick_id=pick.id, voter_type="user", voter_key=str(current_user.id))
+    else:
+        voter_key = _anon_voter_key(x_client_id)
+        val = await get_your_vote(session, pick_id=pick.id, voter_type="anon", voter_key=voter_key) if voter_key else None
+    if val:
+        detail.your_vote = VoteOut(value=val)
 
     return detail
 
@@ -193,20 +210,25 @@ async def vote_on_pick(
     overall: int,
     payload: VoteIn,
     x_client_id: str | None = Header(default=None, alias="X-Client-Id"),
+    current_user: User | None = Depends(get_optional_user),
     session: AsyncSession = Depends(db_session),
 ) -> CommunityVotesOut:
-    voter_key = _anon_voter_key(x_client_id)
-    if not voter_key:
-        raise HTTPException(status_code=400, detail="Missing/invalid X-Client-Id")
+    # Prefer user-linked vote when logged in; fall back to anonymous
+    if current_user:
+        voter_type = "user"
+        voter_key = str(current_user.id)
+    else:
+        voter_type = "anon"
+        voter_key = _anon_voter_key(x_client_id)
+        if not voter_key:
+            raise HTTPException(status_code=400, detail="Missing/invalid X-Client-Id")
 
     pick_id = await get_pick_id(session, year=year, overall=overall)
     if not pick_id:
         raise HTTPException(status_code=404, detail="Pick not found")
 
-    existing = await get_your_vote(session, pick_id=pick_id, voter_type="anon", voter_key=voter_key)
+    existing = await get_your_vote(session, pick_id=pick_id, voter_type=voter_type, voter_key=voter_key)
 
-    # IMPORTANT: depending on your repo, get_your_vote may return VoteOut, a dict, or a string.
-    # Normalize it to a string value.
     existing_value = None
     if existing is None:
         existing_value = None
@@ -218,20 +240,18 @@ async def vote_on_pick(
         existing_value = existing.get("value")
 
     if existing_value == payload.value:
-        # Toggle off: delete vote
         await session.execute(
             delete(PickVote).where(
                 PickVote.pick_id == pick_id,
-                PickVote.voter_type == "anon",
+                PickVote.voter_type == voter_type,
                 PickVote.voter_key == voter_key,
             )
         )
     else:
-        # Set / change vote (your existing helper)
         await upsert_vote(
             session,
             pick_id=pick_id,
-            voter_type="anon",
+            voter_type=voter_type,
             voter_key=voter_key,
             value=payload.value,
         )
@@ -373,6 +393,8 @@ def _pos_group_bucket(pos_group: str | None) -> str:
         return "REC"
     if pg in {"DL", "EDGE", "LB", "DB", "CB", "S"}:
         return "DEF"
+    if pg in {"OL", "T", "G", "C"}:
+        return "OL"
     if pg in {"K", "P", "ST", "SPEC"}:
         return "ST"
     return "OTHER"
@@ -629,7 +651,7 @@ async def _best_game(session: AsyncSession, gsis_id: str, clause: Any, pos_bucke
     game_id = row.game_id
 
     if pos_bucket == "REC":
-        headline = f"Week {week} vs {opp} — {_safe_int(row.receptions)} rec, {_safe_int(row.rec_yards)} yds, {_safe_int(row.rec_tds)} TD"
+        headline = f"{season} Wk {week} vs {opp} — {_safe_int(row.receptions)} rec, {_safe_int(row.rec_yards)} yds, {_safe_int(row.rec_tds)} TD"
         metrics = {
             "targets": _safe_int(row.targets),
             "receptions": _safe_int(row.receptions),
@@ -637,11 +659,11 @@ async def _best_game(session: AsyncSession, gsis_id: str, clause: Any, pos_bucke
             "rec_tds": _safe_int(row.rec_tds),
         }
     elif pos_bucket == "RB":
-        headline = f"Week {week} vs {opp} — {_safe_int(row.rush_yards)} rush yds, {_safe_int(row.rush_tds)} TD"
+        headline = f"{season} Wk {week} vs {opp} — {_safe_int(row.rush_yards)} rush yds, {_safe_int(row.rush_tds)} TD"
         metrics = {"rush_yards": _safe_int(row.rush_yards), "rush_tds": _safe_int(row.rush_tds)}
     elif pos_bucket == "QB":
         epa = float(row.passing_epa) if row.passing_epa is not None else 0.0
-        headline = f"Week {week} vs {opp} — {_safe_int(row.pass_yards)} yds, {_safe_int(row.pass_tds)} TD, {_safe_int(row.pass_ints)} INT (EPA {epa:+.1f})"
+        headline = f"{season} Wk {week} vs {opp} — {_safe_int(row.pass_yards)} yds, {_safe_int(row.pass_tds)} TD, {_safe_int(row.pass_ints)} INT (EPA {epa:+.1f})"
         metrics = {
             "pass_yards": _safe_int(row.pass_yards),
             "pass_tds": _safe_int(row.pass_tds),
@@ -649,7 +671,7 @@ async def _best_game(session: AsyncSession, gsis_id: str, clause: Any, pos_bucke
             "passing_epa": epa,
         }
     else:
-        headline = f"Week {week} vs {opp} — best game"
+        headline = f"{season} Wk {week} vs {opp} — best game"
         metrics = {"metric": float(row.metric)}
 
     return {
@@ -730,6 +752,243 @@ async def _build_tab(session: AsyncSession, gsis_id: str, draft_team: str, scope
     }
 
 
+# ── Auth endpoints ────────────────────────────────────────────────────────────
+
+@router.post("/auth/register", response_model=TokenOut, status_code=201)
+@limiter.limit("5/minute")
+async def register(request: Request, payload: RegisterIn, session: AsyncSession = Depends(db_session)) -> TokenOut:
+    existing = await session.execute(
+        select(User).where((User.username == payload.username) | (User.email == payload.email))
+    )
+    if existing.scalars().first():
+        raise HTTPException(status_code=409, detail="Username or email already taken")
+
+    user = User(
+        username=payload.username,
+        email=payload.email,
+        hashed_password=hash_password(payload.password),
+    )
+    session.add(user)
+    await session.flush()  # get user.id
+    await session.commit()
+    await session.refresh(user)
+
+    token = create_access_token(user.id, user.username)
+    return TokenOut(access_token=token, user_id=user.id, username=user.username)
+
+
+@router.post("/auth/login", response_model=TokenOut)
+@limiter.limit("10/minute")
+async def login(request: Request, payload: LoginIn, session: AsyncSession = Depends(db_session)) -> TokenOut:
+    res = await session.execute(select(User).where(User.username == payload.username))
+    user = res.scalars().first()
+    if not user or not verify_password(payload.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+
+    token = create_access_token(user.id, user.username)
+    return TokenOut(access_token=token, user_id=user.id, username=user.username)
+
+
+@router.get("/auth/me")
+async def me(current_user: User = Depends(get_current_user)) -> dict:
+    return {"user_id": current_user.id, "username": current_user.username, "email": current_user.email}
+
+
+@router.post("/auth/claim-anon-votes")
+async def claim_anon_votes(
+    x_client_id: str | None = Header(default=None, alias="X-Client-Id"),
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(db_session),
+) -> dict:
+    """Reassign anonymous votes (by browser UUID) to the logged-in user account."""
+    anon_key = _anon_voter_key(x_client_id)
+    if not anon_key:
+        raise HTTPException(status_code=400, detail="Missing/invalid X-Client-Id")
+
+    # Find anon votes that conflict with existing user votes on the same pick
+    # (can't have two votes from same user on same pick — skip those)
+    user_pick_ids_res = await session.execute(
+        select(PickVote.pick_id).where(
+            PickVote.voter_type == "user", PickVote.voter_key == str(current_user.id)
+        )
+    )
+    already_voted = {row[0] for row in user_pick_ids_res.all()}
+
+    anon_res = await session.execute(
+        select(PickVote).where(
+            PickVote.voter_type == "anon", PickVote.voter_key == anon_key
+        )
+    )
+    anon_votes = anon_res.scalars().all()
+
+    claimed = 0
+    for vote in anon_votes:
+        if vote.pick_id in already_voted:
+            continue  # user already has a vote on this pick, skip
+        vote.voter_type = "user"
+        vote.voter_key = str(current_user.id)
+        claimed += 1
+
+    await session.commit()
+    return {"claimed": claimed}
+
+
+# ── Profile endpoint ──────────────────────────────────────────────────────────
+
+PAGE_SIZE = 25
+
+@router.get("/profile/{username}", response_model=ProfileOut)
+async def get_profile(
+    username: str,
+    votes_offset: int = Query(0, ge=0, alias="votesOffset"),
+    comments_offset: int = Query(0, ge=0, alias="commentsOffset"),
+    vote_filter_param: str | None = Query(None, alias="voteFilter", pattern="^(success|bust)$"),
+    session: AsyncSession = Depends(db_session),
+) -> ProfileOut:
+    res = await session.execute(select(User).where(User.username == username))
+    user = res.scalars().first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    base_vote_filter = and_(PickVote.voter_type == "user", PickVote.voter_key == str(user.id))
+    comment_filter = Comment.user_id == user.id
+
+    # Counts — always unfiltered
+    total_votes = (await session.execute(select(func.count()).select_from(PickVote).where(base_vote_filter))).scalar_one()
+    total_success = (await session.execute(select(func.count()).select_from(PickVote).where(and_(base_vote_filter, PickVote.value == "success")))).scalar_one()
+    total_bust = (await session.execute(select(func.count()).select_from(PickVote).where(and_(base_vote_filter, PickVote.value == "bust")))).scalar_one()
+    total_comments = (await session.execute(select(func.count()).select_from(Comment).where(comment_filter))).scalar_one()
+
+    # Votes page — optionally filtered by value
+    votes_where = base_vote_filter if vote_filter_param is None else and_(base_vote_filter, PickVote.value == vote_filter_param)
+    votes_stmt = (
+        select(PickVote, DraftPick, Player, Team)
+        .join(DraftPick, PickVote.pick_id == DraftPick.id)
+        .join(Player, DraftPick.player_id == Player.id)
+        .join(Team, DraftPick.team_id == Team.id)
+        .where(votes_where)
+        .order_by(PickVote.created_at.desc())
+        .limit(PAGE_SIZE).offset(votes_offset)
+    )
+    votes_rows = (await session.execute(votes_stmt)).all()
+    votes = [
+        ProfileVoteOut(
+            year=pick.year, overall=pick.overall, pick_in_round=pick.pick_in_round,
+            round=pick.round, player_name=player.full_name, team_abbrev=team.abbrev,
+            value=vote.value, voted_at=vote.created_at,
+        )
+        for vote, pick, player, team in votes_rows
+    ]
+
+    # Comments page
+    comments_stmt = (
+        select(Comment, DraftPick, Player, Team)
+        .join(DraftPick, Comment.pick_id == DraftPick.id)
+        .join(Player, DraftPick.player_id == Player.id)
+        .join(Team, DraftPick.team_id == Team.id)
+        .where(comment_filter)
+        .order_by(Comment.created_at.desc())
+        .limit(PAGE_SIZE).offset(comments_offset)
+    )
+    comments_rows = (await session.execute(comments_stmt)).all()
+    comments = [
+        ProfileCommentOut(
+            id=comment.id, year=pick.year, overall=pick.overall, pick_in_round=pick.pick_in_round,
+            round=pick.round, player_name=player.full_name, team_abbrev=team.abbrev,
+            body=comment.body, created_at=comment.created_at,
+        )
+        for comment, pick, player, team in comments_rows
+    ]
+
+    return ProfileOut(
+        username=user.username,
+        joined_at=user.created_at,
+        total_votes=total_votes,
+        total_success=total_success,
+        total_bust=total_bust,
+        total_comments=total_comments,
+        votes=votes,
+        comments=comments,
+    )
+
+
+# ── Comment endpoints ──────────────────────────────────────────────────────────
+
+@router.get("/pick/{year}/{overall}/comments", response_model=list[CommentOut])
+async def list_comments(
+    year: int,
+    overall: int,
+    session: AsyncSession = Depends(db_session),
+) -> list[CommentOut]:
+    pick_id = await get_pick_id(session, year=year, overall=overall)
+    if not pick_id:
+        raise HTTPException(status_code=404, detail="Pick not found")
+
+    res = await session.execute(
+        select(Comment)
+        .where(Comment.pick_id == pick_id)
+        .options(joinedload(Comment.author))
+        .order_by(Comment.created_at.asc())
+    )
+    comments = res.scalars().unique().all()
+    return [
+        CommentOut(
+            id=c.id,
+            pick_id=c.pick_id,
+            user_id=c.user_id,
+            username=c.author.username,
+            body=c.body,
+            created_at=c.created_at,
+            updated_at=c.updated_at,
+        )
+        for c in comments
+    ]
+
+
+@router.post("/pick/{year}/{overall}/comments", response_model=CommentOut, status_code=201)
+async def post_comment(
+    year: int,
+    overall: int,
+    payload: CommentIn,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(db_session),
+) -> CommentOut:
+    pick_id = await get_pick_id(session, year=year, overall=overall)
+    if not pick_id:
+        raise HTTPException(status_code=404, detail="Pick not found")
+
+    comment = Comment(pick_id=pick_id, user_id=current_user.id, body=payload.body.strip())
+    session.add(comment)
+    await session.commit()
+    await session.refresh(comment)
+
+    return CommentOut(
+        id=comment.id,
+        pick_id=comment.pick_id,
+        user_id=comment.user_id,
+        username=current_user.username,
+        body=comment.body,
+        created_at=comment.created_at,
+        updated_at=comment.updated_at,
+    )
+
+
+@router.delete("/comments/{comment_id}", status_code=204)
+async def delete_comment(
+    comment_id: int,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(db_session),
+) -> None:
+    res = await session.execute(select(Comment).where(Comment.id == comment_id))
+    comment = res.scalars().first()
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    if comment.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not your comment")
+    await session.delete(comment)
+    await session.commit()
+
+
 @router.get("/player/{gsis_id}/drawer")
 async def player_drawer(
     gsis_id: str,
@@ -778,12 +1037,43 @@ async def player_drawer(
 
     timeline = await _career_timeline(session, gsis_id)
 
+    # OL blocking stats (by player name match via gsis_id → player.id)
+    ol_stats: list[dict] = []
+    if pos_bucket == "OL":
+        player_row = (await session.execute(select(Player).where(Player.gsis_id == gsis_id))).scalars().first()
+        if player_row:
+            ol_rows = (
+                await session.execute(
+                    select(OLSeasonStat)
+                    .where(OLSeasonStat.player_id == player_row.id)
+                    .order_by(OLSeasonStat.season.desc())
+                )
+            ).scalars().all()
+            ol_stats = [
+                OLSeasonStatOut(
+                    season=r.season,
+                    position=r.position,
+                    team_abbrev=r.team_abbrev,
+                    games=r.games,
+                    snap_counts_offense=r.snap_counts_offense,
+                    pressures_allowed=r.pressures_allowed,
+                    hurries_allowed=r.hurries_allowed,
+                    hits_allowed=r.hits_allowed,
+                    sacks_allowed=r.sacks_allowed,
+                    pbe=r.pbe,
+                    pass_block_percent=r.pass_block_percent,
+                    penalties=r.penalties,
+                ).model_dump()
+                for r in ol_rows
+            ]
+
     return {
         "player": player_payload,
         "draft_context": {"draft_team": draft_team},
         "tabs": tabs,
         "timeline": timeline,
         "selected_team": team,
+        "ol_stats": ol_stats,
         "ui_hints": {
             "default_tab": "career",
             "receiver_best_game_metric": "rec_yards",

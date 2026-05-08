@@ -2,7 +2,9 @@
 "use client";
 
 import * as React from "react";
-import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "../contexts/auth-context";
 
 /** -----------------------------
  * Types (minimal, UI-focused)
@@ -77,6 +79,21 @@ type DrawerTab = {
 
 type CareerTimelineEntry = { season: number; team: string; games: number };
 
+type OLSeasonStat = {
+  season: number;
+  position: string | null;
+  team_abbrev: string | null;
+  games: number | null;
+  snap_counts_offense: number | null;
+  pressures_allowed: number | null;
+  hurries_allowed: number | null;
+  hits_allowed: number | null;
+  sacks_allowed: number | null;
+  pbe: number | null;
+  pass_block_percent: number | null;
+  penalties: number | null;
+};
+
 type DrawerResponse = {
   player: {
     gsis_id: string;
@@ -96,6 +113,7 @@ type DrawerResponse = {
   tabs: Record<string, DrawerTab>;
   timeline: CareerTimelineEntry[];
   selected_team: string | null;
+  ol_stats: OLSeasonStat[];
   ui_hints: { default_tab: string };
 };
 
@@ -109,6 +127,16 @@ type RankingsItem = {
   bust: number;
   totalVotes: number;
   ratio: number | null;
+};
+
+type CommentOut = {
+  id: number;
+  pick_id: number;
+  user_id: number;
+  username: string;
+  body: string;
+  created_at: string;
+  updated_at: string;
 };
 
 /** -----------------------------
@@ -220,6 +248,12 @@ function Drawer({
  * API calls
  * ------------------------------ */
 
+function authHeaders(token?: string | null): Record<string, string> {
+  const h: Record<string, string> = { "X-Client-Id": getClientId() };
+  if (token) h["Authorization"] = `Bearer ${token}`;
+  return h;
+}
+
 async function fetchDraftBoard(args: {
   year: number;
   round?: number | null;
@@ -228,6 +262,7 @@ async function fetchDraftBoard(args: {
   q?: string;
   limit: number;
   offset: number;
+  token?: string | null;
 }): Promise<DraftBoardRow[]> {
   const url = new URL(`${API_BASE}/draft`);
   url.searchParams.set("year", String(args.year));
@@ -239,29 +274,31 @@ async function fetchDraftBoard(args: {
   url.searchParams.set("offset", String(args.offset));
 
   const res = await fetch(url.toString(), {
-    headers: { "X-Client-Id": getClientId() },
+    headers: authHeaders(args.token),
     cache: "no-store",
   });
   if (!res.ok) throw new Error(`Draft fetch failed: ${res.status}`);
   return res.json();
 }
 
-async function fetchPickDetail(year: number, overall: number): Promise<PickDetail> {
+async function fetchPickDetail(year: number, overall: number, token?: string | null): Promise<PickDetail> {
   const res = await fetch(`${API_BASE}/pick/${year}/${overall}`, {
-    headers: { "X-Client-Id": getClientId() },
+    headers: authHeaders(token),
     cache: "no-store",
   });
   if (!res.ok) throw new Error(`Pick fetch failed: ${res.status}`);
   return res.json();
 }
 
-async function postVote(year: number, overall: number, value: "success" | "bust"): Promise<CommunityVotesOut> {
+async function postVote(year: number, overall: number, value: "success" | "bust", token?: string | null): Promise<CommunityVotesOut> {
+  const headers: Record<string, string> = {
+    "X-Client-Id": getClientId(),
+    "Content-Type": "application/json",
+  };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
   const res = await fetch(`${API_BASE}/pick/${year}/${overall}/vote`, {
     method: "POST",
-    headers: {
-      "X-Client-Id": getClientId(),
-      "Content-Type": "application/json",
-    },
+    headers,
     body: JSON.stringify({ value }),
   });
   if (!res.ok) throw new Error(`Vote failed: ${res.status}`);
@@ -276,6 +313,33 @@ async function fetchDrawer(gsisId: string, draftTeam: string, team?: string | nu
   const res = await fetch(url.toString(), { cache: "no-store" });
   if (!res.ok) throw new Error(`Drawer fetch failed: ${res.status}`);
   return res.json();
+}
+
+async function fetchComments(year: number, overall: number): Promise<CommentOut[]> {
+  const res = await fetch(`${API_BASE}/pick/${year}/${overall}/comments`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Comments fetch failed: ${res.status}`);
+  return res.json();
+}
+
+async function postComment(year: number, overall: number, body: string, token: string): Promise<CommentOut> {
+  const res = await fetch(`${API_BASE}/pick/${year}/${overall}/comments`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ body }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? "Failed to post comment");
+  }
+  return res.json();
+}
+
+async function deleteComment(commentId: number, token: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/comments/${commentId}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error("Failed to delete comment");
 }
 
 async function fetchRankings(
@@ -317,9 +381,18 @@ function MiniVoteButtons({
   const active = yourVote?.value ?? null;
 
   const base =
-    "inline-flex h-7 w-7 items-center justify-center rounded-xl border text-xs leading-none transition-colors disabled:opacity-50";
-  const inactive = "border-slate-800 bg-slate-950/20 text-slate-200 hover:bg-slate-900/40";
-  const activeCls = "border-slate-200/30 bg-slate-200/10 text-slate-100";
+    "inline-flex h-7 w-7 items-center justify-center rounded-xl border text-xs leading-none transition-all disabled:opacity-50";
+
+  function bustStyle(): React.CSSProperties {
+    return active === "bust"
+      ? { borderColor: "#ef4444", backgroundColor: "rgba(239,68,68,0.2)", color: "#fca5a5", boxShadow: "0 0 8px rgba(239,68,68,0.5)" }
+      : { borderColor: "#475569", backgroundColor: "transparent", color: "#94a3b8" };
+  }
+  function successStyle(): React.CSSProperties {
+    return active === "success"
+      ? { borderColor: "#10b981", backgroundColor: "rgba(16,185,129,0.2)", color: "#6ee7b7", boxShadow: "0 0 8px rgba(16,185,129,0.5)" }
+      : { borderColor: "#475569", backgroundColor: "transparent", color: "#94a3b8" };
+  }
 
   return (
     <div
@@ -331,7 +404,8 @@ function MiniVoteButtons({
         type="button"
         aria-label="Vote bust"
         disabled={disabled}
-        className={`${base} ${active === "bust" ? activeCls : inactive}`}
+        className={base}
+        style={bustStyle()}
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -345,7 +419,8 @@ function MiniVoteButtons({
         type="button"
         aria-label="Vote success"
         disabled={disabled}
-        className={`${base} ${active === "success" ? activeCls : inactive}`}
+        className={base}
+        style={successStyle()}
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -451,6 +526,91 @@ function StatRow({ label, value }: { label: string; value: React.ReactNode }) {
     <div className="flex items-center justify-between gap-4 rounded-2xl border border-slate-800 bg-slate-950/20 px-4 py-2">
       <div className="text-xs text-slate-400">{label}</div>
       <div className="text-sm text-slate-100">{value}</div>
+    </div>
+  );
+}
+
+function sumStat(rows: OLSeasonStat[], key: keyof OLSeasonStat): number {
+  return rows.reduce((acc, r) => acc + (r[key] as number | null ?? 0), 0);
+}
+function avgStat(rows: OLSeasonStat[], key: keyof OLSeasonStat): number | null {
+  const vals = rows.map(r => r[key] as number | null).filter((v): v is number => v != null);
+  return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+}
+
+function OLDrawerView({ stats, selectedTeam }: { stats: OLSeasonStat[]; selectedTeam: string | null }) {
+  const displayed = selectedTeam ? stats.filter(s => s.team_abbrev === selectedTeam) : stats;
+
+  if (displayed.length === 0) {
+    return (
+      <div className="space-y-4">
+        <div className="rounded-3xl border border-slate-800 bg-slate-900/30 p-4">
+          <div className="text-xs text-slate-500">Totals</div>
+          <div className="mt-2 text-sm text-slate-500">No blocking stats available{selectedTeam ? ` for ${selectedTeam}` : " (data starts 2006)"}.</div>
+        </div>
+      </div>
+    );
+  }
+
+  const totalGames = sumStat(displayed, "games");
+  const totalSnaps = sumStat(displayed, "snap_counts_offense");
+  const totalPressures = sumStat(displayed, "pressures_allowed");
+  const totalHurries = sumStat(displayed, "hurries_allowed");
+  const totalHits = sumStat(displayed, "hits_allowed");
+  const totalSacks = sumStat(displayed, "sacks_allowed");
+  const totalPenalties = sumStat(displayed, "penalties");
+  const avgPBE = avgStat(displayed, "pbe");
+
+  const bestSeason = [...displayed].sort((a, b) => (b.pbe ?? 0) - (a.pbe ?? 0))[0];
+  const teams = [...new Set(displayed.map(s => s.team_abbrev).filter(Boolean))];
+  const seasons = displayed.map(s => s.season).sort((a, b) => a - b);
+
+  return (
+    <div className="space-y-4">
+      {/* Totals */}
+      <div className="rounded-3xl border border-slate-800 bg-slate-900/30 p-4">
+        <div className="text-xs text-slate-500">Totals</div>
+        <div className="mt-2 grid gap-2">
+          <StatRow label="Games" value={totalGames} />
+          <StatRow label="Snaps" value={totalSnaps} />
+          <StatRow label="Pressures Allowed" value={totalPressures} />
+          <StatRow label="Hurries Allowed" value={totalHurries} />
+          <StatRow label="Hits Allowed" value={totalHits} />
+          <StatRow label="Sacks Allowed" value={totalSacks} />
+          <StatRow label="Penalties" value={totalPenalties} />
+          <StatRow label="Avg PBE%" value={avgPBE != null ? avgPBE.toFixed(1) : "—"} />
+        </div>
+      </div>
+
+      {/* Best season */}
+      <div className="rounded-3xl border border-slate-800 bg-slate-900/30 p-4">
+        <div className="text-xs text-slate-500">Notables</div>
+        <div className="mt-3 space-y-2">
+          <div className="rounded-2xl border border-slate-800 bg-slate-950/20 px-4 py-2">
+            <div className="text-[11px] text-slate-500">Best season (PBE%)</div>
+            <div className="mt-0.5 flex items-center justify-between gap-3">
+              <div className="text-sm text-slate-100">
+                {bestSeason.pbe != null
+                  ? `${bestSeason.season}: ${bestSeason.pbe.toFixed(1)}% PBE, ${bestSeason.pressures_allowed ?? "—"} pressures`
+                  : <span className="text-slate-500">—</span>}
+              </div>
+              {bestSeason.team_abbrev && !selectedTeam ? <TeamPill team={bestSeason.team_abbrev} /> : null}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Scope */}
+      <div className="rounded-3xl border border-slate-800 bg-slate-900/30 p-4">
+        <div className="text-xs text-slate-500">Scope</div>
+        <div className="mt-2 text-xs text-slate-400">
+          Teams: <span className="text-slate-200">{teams.join(", ") || "—"}</span>
+        </div>
+        <div className="mt-1 text-xs text-slate-400">
+          Seasons: <span className="text-slate-200">{seasons.join(", ") || "—"}</span>
+        </div>
+        <div className="mt-1 text-xs text-slate-500">Stats available from 2006</div>
+      </div>
     </div>
   );
 }
@@ -584,14 +744,14 @@ function DrawerTabView({ tab, positionGroup }: { tab: DrawerTab; positionGroup: 
   const totals = tab.totals;
   const pg = (positionGroup ?? "").toUpperCase();
 
-  const showPassing = totals.passing.att > 0 || pg === "QB";
-  const showReceiving = totals.receiving.targets > 0 || ["WR", "TE", "REC"].includes(pg);
-  const showRushing = totals.rushing.att > 0 || pg === "RB";
-  const showDefense =
-    totals.defense.tackles > 0 ||
-    totals.defense.sacks > 0 ||
-    totals.defense.int > 0 ||
-    ["DB", "DL", "LB", "DEF"].includes(pg);
+  const isOL = pg === "OL";
+  const showPassing = !isOL && (totals.passing.att > 0 || pg === "QB");
+  const showReceiving = !isOL && (totals.receiving.targets > 0 || ["WR", "TE", "REC"].includes(pg));
+  const showRushing = !isOL && (totals.rushing.att > 0 || pg === "RB");
+  const showDefense = !isOL && ["DB", "DL", "LB", "DEF", "EDGE", "ED", "CB", "S"].includes(pg);
+  const showFumbles = !isOL && !showDefense;
+
+  if (isOL) return null;
 
   return (
     <div className="space-y-4">
@@ -631,11 +791,12 @@ function DrawerTabView({ tab, positionGroup }: { tab: DrawerTab; positionGroup: 
               <StatRow label="Tackles" value={totals.defense.tackles} />
               <StatRow label="Sacks" value={totals.defense.sacks.toFixed(1)} />
               <StatRow label="INT" value={totals.defense.int} />
+              <StatRow label="Forced Fumbles" value={totals.defense.ff} />
               <StatRow label="Def TD" value={totals.defense.td} />
             </>
           ) : null}
 
-          <StatRow label="Fumbles Lost" value={totals.ball_security.fumbles_lost} />
+          {showFumbles ? <StatRow label="Fumbles Lost" value={totals.ball_security.fumbles_lost} /> : null}
         </div>
       </div>
 
@@ -669,9 +830,6 @@ function DrawerTabView({ tab, positionGroup }: { tab: DrawerTab; positionGroup: 
               ) : null}
             </div>
 
-            {tab.notables.best_game?.game_id ? (
-              <div className="mt-1 font-mono text-[10px] text-slate-500">{tab.notables.best_game.game_id}</div>
-            ) : null}
           </div>
         </div>
       </div>
@@ -695,6 +853,116 @@ function DrawerTabView({ tab, positionGroup }: { tab: DrawerTab; positionGroup: 
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function CommentsSection({ year, overall }: { year: number; overall: number }) {
+  const { user, token } = useAuth();
+  const qc = useQueryClient();
+  const commentsKey = ["comments", year, overall];
+
+  const commentsQuery = useQuery({
+    queryKey: commentsKey,
+    queryFn: () => fetchComments(year, overall),
+  });
+
+  const [body, setBody] = React.useState("");
+  const [submitting, setSubmitting] = React.useState(false);
+  const [submitError, setSubmitError] = React.useState<string | null>(null);
+
+  async function handlePost(e: React.FormEvent) {
+    e.preventDefault();
+    if (!token || !body.trim()) return;
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      await postComment(year, overall, body.trim(), token);
+      setBody("");
+      qc.invalidateQueries({ queryKey: commentsKey });
+    } catch (err: any) {
+      setSubmitError(err.message ?? "Failed to post");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleDelete(commentId: number) {
+    if (!token) return;
+    try {
+      await deleteComment(commentId, token);
+      qc.invalidateQueries({ queryKey: commentsKey });
+    } catch {
+      // silently ignore
+    }
+  }
+
+  const comments = commentsQuery.data ?? [];
+
+  return (
+    <div className="rounded-3xl border border-slate-800 bg-slate-900/30 p-5 space-y-4">
+      <div className="text-xs text-slate-500">Community Comments</div>
+
+      {/* Comment list */}
+      {commentsQuery.isLoading ? (
+        <div className="text-xs text-slate-500">Loading…</div>
+      ) : comments.length === 0 ? (
+        <div className="text-xs text-slate-500">No comments yet — be the first!</div>
+      ) : (
+        <div className="space-y-2">
+          {comments.map((c) => (
+            <div key={c.id} className="rounded-2xl border border-slate-800 bg-slate-950/30 px-4 py-3">
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <Link href={`/profile/${c.username}`} className="text-xs font-medium text-slate-300 hover:text-slate-100 transition-colors">
+                  {c.username}
+                </Link>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-slate-600">
+                    {new Date(c.created_at).toLocaleDateString()}
+                  </span>
+                  {user?.user_id === c.user_id && (
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(c.id)}
+                      className="text-[10px] text-slate-600 hover:text-red-400 transition-colors"
+                    >
+                      delete
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="text-sm text-slate-200 whitespace-pre-wrap">{c.body}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Post form */}
+      {user ? (
+        <form onSubmit={handlePost} className="space-y-2">
+          <textarea
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            placeholder="Share your take…"
+            rows={3}
+            className="w-full rounded-2xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-slate-500 resize-none"
+          />
+          {submitError && (
+            <div className="text-xs text-red-400">{submitError}</div>
+          )}
+          <button
+            type="submit"
+            disabled={submitting || !body.trim()}
+            className="rounded-2xl border border-slate-600 bg-slate-800 px-4 py-2 text-xs text-slate-100 hover:bg-slate-700 disabled:opacity-40 transition-colors"
+          >
+            {submitting ? "Posting…" : "Post comment"}
+          </button>
+        </form>
+      ) : (
+        <div className="text-xs text-slate-500">
+          Sign in to leave a comment.
+        </div>
+      )}
     </div>
   );
 }
@@ -866,6 +1134,8 @@ export default function DraftBoardPage() {
 
   const [selectedTeam, setSelectedTeam] = React.useState<string | null>(null);
 
+  const { token } = useAuth();
+
   const [votingKeys, setVotingKeys] = React.useState<Set<string>>(() => new Set());
   const [rankingsPanelOpen, setRankingsPanelOpen] = React.useState(false);
 
@@ -878,7 +1148,7 @@ export default function DraftBoardPage() {
   }, [selected?.year, selected?.overall]);
 
   const boardQuery = useQuery({
-    queryKey: ["draft", year, round, team, pos, q, offset, PAGE_SIZE],
+    queryKey: ["draft", year, round, team, pos, q, offset, PAGE_SIZE, token],
     queryFn: () =>
       fetchDraftBoard({
         year,
@@ -888,12 +1158,13 @@ export default function DraftBoardPage() {
         q: q || undefined,
         limit: PAGE_SIZE,
         offset,
+        token,
       }),
   });
 
   const pickQuery = useQuery({
-    queryKey: ["pick", selected?.year, selected?.overall],
-    queryFn: () => fetchPickDetail(selected!.year, selected!.overall),
+    queryKey: ["pick", selected?.year, selected?.overall, token],
+    queryFn: () => fetchPickDetail(selected!.year, selected!.overall, token),
     enabled: !!selected,
   });
 
@@ -921,7 +1192,7 @@ export default function DraftBoardPage() {
 
     setVotingKeys((prev) => new Set(prev).add(key));
     try {
-      await postVote(args.year, args.overall, args.value); // backend handles toggle-off when vote matches existing
+      await postVote(args.year, args.overall, args.value, token);
       await boardQuery.refetch();
       if (selected && selected.year === args.year && selected.overall === args.overall) {
         await pickQuery.refetch();
@@ -1141,42 +1412,52 @@ export default function DraftBoardPage() {
                 </div>
               </div>
 
-              <div className="mt-5 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
+              <div className="mt-5 space-y-3">
+                {/* Vote buttons */}
+                {(() => {
+                  const yourVote = pickQuery.data.your_vote?.value ?? null;
+                  const isVoting = votingKeys.has(pickKey(pickQuery.data.year, pickQuery.data.overall));
+                  const bustActive = yourVote === "bust";
+                  const successActive = yourVote === "success";
+                  return (
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        disabled={isVoting}
+                        onClick={() => voteForPick({ year: pickQuery.data.year, overall: pickQuery.data.overall, value: "bust" })}
+                        className="flex-1 flex items-center justify-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-medium transition-all disabled:opacity-50"
+                        style={bustActive
+                          ? { borderColor: "#ef4444", backgroundColor: "rgba(239,68,68,0.15)", color: "#fca5a5", boxShadow: "0 0 12px rgba(239,68,68,0.3)" }
+                          : { borderColor: "#334155", backgroundColor: "transparent", color: "#94a3b8" }}
+                      >
+                        <span>❌</span>
+                        <span>Bust{bustActive ? " ✓" : ""}</span>
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isVoting}
+                        onClick={() => voteForPick({ year: pickQuery.data.year, overall: pickQuery.data.overall, value: "success" })}
+                        className="flex-1 flex items-center justify-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-medium transition-all disabled:opacity-50"
+                        style={successActive
+                          ? { borderColor: "#10b981", backgroundColor: "rgba(16,185,129,0.15)", color: "#6ee7b7", boxShadow: "0 0 12px rgba(16,185,129,0.3)" }
+                          : { borderColor: "#334155", backgroundColor: "transparent", color: "#94a3b8" }}
+                      >
+                        <span>✅</span>
+                        <span>Success{successActive ? " ✓" : ""}</span>
+                      </button>
+                    </div>
+                  );
+                })()}
+
+                {/* Score + bar */}
+                <div className="flex items-center gap-3">
                   <ScoreBadge cv={pickQuery.data.community_votes ?? null} />
-                  {pickQuery.data.your_vote ? (
-                    <span className="text-xs text-slate-400">You: {pickQuery.data.your_vote.value}</span>
-                  ) : null}
+                  {(pickQuery.data.community_votes?.total ?? 0) === 0 && (
+                    <span className="text-xs text-slate-500">No votes yet — be the first!</span>
+                  )}
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    disabled={votingKeys.has(pickKey(pickQuery.data.year, pickQuery.data.overall))}
-                    className="rounded-2xl border border-slate-800 bg-slate-900/40 px-4 py-2 text-sm text-slate-100 hover:bg-slate-800/60 disabled:opacity-50"
-                    onClick={() =>
-                      voteForPick({ year: pickQuery.data.year, overall: pickQuery.data.overall, value: "bust" })
-                    }
-                    type="button"
-                  >
-                    ❌ Bust
-                  </button>
-                  <button
-                    disabled={votingKeys.has(pickKey(pickQuery.data.year, pickQuery.data.overall))}
-                    className="rounded-2xl border border-slate-800 bg-slate-900/40 px-4 py-2 text-sm text-slate-100 hover:bg-slate-800/60 disabled:opacity-50"
-                    onClick={() =>
-                      voteForPick({ year: pickQuery.data.year, overall: pickQuery.data.overall, value: "success" })
-                    }
-                    type="button"
-                  >
-                    ✅ Success
-                  </button>
-                </div>
+                <VoteBar cv={pickQuery.data.community_votes ?? null} />
               </div>
-
-              {(pickQuery.data.community_votes?.total ?? 0) === 0 ? (
-                <div className="mt-3 text-xs text-slate-400">No votes yet — be the first to vote!</div>
-              ) : null}
-
-              <VoteBar cv={pickQuery.data.community_votes ?? null} />
             </div>
 
             {drawerQuery.data?.timeline?.length ? (
@@ -1204,15 +1485,23 @@ export default function DraftBoardPage() {
                     </pre>
                   </div>
                 ) : drawerQuery.data ? (
-                  <DrawerTabView
-                    tab={drawerQuery.data.tabs[selectedTeam ? "selected" : "career"]}
-                    positionGroup={drawerQuery.data.player.position_group}
-                  />
+                  <>
+                    <DrawerTabView
+                      tab={drawerQuery.data.tabs[selectedTeam ? "selected" : "career"]}
+                      positionGroup={drawerQuery.data.player.position_group}
+                    />
+                    {drawerQuery.data.player.position_group === "OL" && (
+                      <OLDrawerView stats={drawerQuery.data.ol_stats ?? []} selectedTeam={selectedTeam} />
+                    )}
+                  </>
                 ) : (
                   <div className="text-sm text-slate-500">No stats available.</div>
                 )}
               </div>
             </div>
+            {selected && (
+              <CommentsSection year={selected.year} overall={selected.overall} />
+            )}
           </div>
         ) : null}
       </Drawer>
