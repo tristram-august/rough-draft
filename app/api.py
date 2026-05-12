@@ -288,7 +288,7 @@ async def vote_on_pick(
 
 @router.get("/rankings")
 async def rankings(
-    year: int = Query(..., ge=1936, le=2100),
+    year: int | None = Query(None, ge=1936, le=2100),
     group_by: str = Query(..., pattern="^(team|player)$", alias="groupBy"),
     sort: str = Query("best", pattern="^(best|worst|most_voted|controversial)$"),
     round: int | None = Query(None, ge=1, le=32),
@@ -310,12 +310,13 @@ async def rankings(
     Uses your existing bulk vote loader: get_community_votes_for_picks().
     """
 
-    # 1) Load scoped picks (NO pagination; year is small enough ~260 picks)
+    # 1) Load scoped picks
     stmt = (
         select(DraftPick)
         .options(joinedload(DraftPick.team), joinedload(DraftPick.player))
-        .where(DraftPick.year == year)
     )
+    if year is not None:
+        stmt = stmt.where(DraftPick.year == year)
 
     if round is not None:
         stmt = stmt.where(DraftPick.round == round)
@@ -388,7 +389,7 @@ async def rankings(
     items = items[:limit]
 
     return {
-        "year": year,
+        "year": year if year is not None else "all",
         "groupBy": group_by,
         "sort": sort,
         "limit": limit,

@@ -352,7 +352,7 @@ async function deleteComment(commentId: number, token: string): Promise<void> {
 }
 
 async function fetchRankings(
-  year: number,
+  year: number | null,
   groupBy: "team" | "player",
   sort: "best" | "worst" | "most_voted" | "controversial" = "best",
   minVotes: number = 1,
@@ -361,7 +361,7 @@ async function fetchRankings(
   maxRound?: number,
 ): Promise<{ items: RankingsItem[] }> {
   const url = new URL(`${API_BASE}/rankings`);
-  url.searchParams.set("year", String(year));
+  if (year !== null) url.searchParams.set("year", String(year));
   url.searchParams.set("groupBy", groupBy);
   url.searchParams.set("sort", sort);
   url.searchParams.set("minVotes", String(minVotes));
@@ -988,7 +988,7 @@ function RankingsWindow({
   defaultOpen = true,
 }: {
   title: string;
-  year: number;
+  year: number | null;
   groupBy: "team" | "player";
   sort?: "best" | "worst" | "most_voted" | "controversial";
   minVotes?: number;
@@ -1062,6 +1062,9 @@ function RankingsPanel({
   open: boolean;
   onToggle: () => void;
 }) {
+  const [allTime, setAllTime] = React.useState(false);
+  const effectiveYear = allTime ? null : year;
+
   return (
     <>
       {/* Backdrop */}
@@ -1086,14 +1089,30 @@ function RankingsPanel({
             Close
           </button>
         </div>
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-slate-800 shrink-0">
+          <button
+            type="button"
+            onClick={() => setAllTime(false)}
+            className={`rounded-lg px-3 py-1 text-xs transition-colors ${!allTime ? "bg-slate-700 text-slate-100" : "text-slate-500 hover:text-slate-300"}`}
+          >
+            {year}
+          </button>
+          <button
+            type="button"
+            onClick={() => setAllTime(true)}
+            className={`rounded-lg px-3 py-1 text-xs transition-colors ${allTime ? "bg-slate-700 text-slate-100" : "text-slate-500 hover:text-slate-300"}`}
+          >
+            All Time
+          </button>
+        </div>
         <div className="flex-1 overflow-y-auto p-3 space-y-2">
-          <RankingsWindow title="Team Success %" year={year} groupBy="team" sort="best" limit={32} defaultOpen={false} />
-          <RankingsWindow title="Best Picks" year={year} groupBy="player" sort="best" minVotes={2} limit={10} defaultOpen={false} />
-          <RankingsWindow title="Biggest Busts" year={year} groupBy="player" sort="worst" minVotes={2} limit={10} defaultOpen={false} />
-          <RankingsWindow title="Most Controversial" year={year} groupBy="player" sort="controversial" minVotes={3} limit={10} defaultOpen={false} />
-          <RankingsWindow title="Most Voted" year={year} groupBy="player" sort="most_voted" minVotes={1} limit={10} defaultOpen={false} />
-          <RankingsWindow title="Biggest Steals" year={year} groupBy="player" sort="best" minVotes={2} limit={10} minRound={3} defaultOpen={false} />
-          <RankingsWindow title="Biggest Reaches" year={year} groupBy="player" sort="worst" minVotes={2} limit={10} maxRound={2} defaultOpen={false} />
+          <RankingsWindow title="Team Success %" year={effectiveYear} groupBy="team" sort="best" limit={32} defaultOpen={false} />
+          <RankingsWindow title="Best Picks" year={effectiveYear} groupBy="player" sort="best" minVotes={2} limit={10} defaultOpen={false} />
+          <RankingsWindow title="Biggest Busts" year={effectiveYear} groupBy="player" sort="worst" minVotes={2} limit={10} defaultOpen={false} />
+          <RankingsWindow title="Most Controversial" year={effectiveYear} groupBy="player" sort="controversial" minVotes={3} limit={10} defaultOpen={false} />
+          <RankingsWindow title="Most Voted" year={effectiveYear} groupBy="player" sort="most_voted" minVotes={1} limit={10} defaultOpen={false} />
+          <RankingsWindow title="Biggest Steals" year={effectiveYear} groupBy="player" sort="best" minVotes={2} limit={10} minRound={3} defaultOpen={false} />
+          <RankingsWindow title="Biggest Reaches" year={effectiveYear} groupBy="player" sort="worst" minVotes={2} limit={10} maxRound={2} defaultOpen={false} />
         </div>
       </aside>
 
