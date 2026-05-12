@@ -17,7 +17,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900 text-slate-100">
             <header className="sticky top-0 z-20 border-b border-slate-800 bg-slate-950/70 backdrop-blur">
               <div className="mx-auto max-w-5xl px-4 py-4 flex items-center justify-between">
-                <div className="text-lg sm:text-2xl font-bold tracking-tight">Rough Draft</div>
+                <div className="absolute left-1/2 -translate-x-1/2 text-xl sm:text-3xl font-bold tracking-tight">Rough Draft</div>
+                <div className="invisible text-xl sm:text-3xl font-bold">Rough Draft</div>
                 <AuthButton />
               </div>
               <VerifyBanner />
