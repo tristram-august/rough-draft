@@ -33,12 +33,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = React.useState<AuthUser | null>(null);
 
   React.useEffect(() => {
-    const storedToken = window.localStorage.getItem(TOKEN_KEY);
-    const storedUser = window.localStorage.getItem(USER_KEY);
-    if (storedToken) setToken(storedToken);
-    if (storedUser) {
-      try { setUser(JSON.parse(storedUser)); } catch { /* ignore corrupt data */ }
+    function loadFromStorage() {
+      const storedToken = window.localStorage.getItem(TOKEN_KEY);
+      const storedUser = window.localStorage.getItem(USER_KEY);
+      if (storedToken) setToken(storedToken);
+      if (storedUser) {
+        try { setUser(JSON.parse(storedUser)); } catch { /* ignore corrupt data */ }
+      }
     }
+    loadFromStorage();
+    window.addEventListener("storage", loadFromStorage);
+    return () => window.removeEventListener("storage", loadFromStorage);
   }, []);
 
   function persist(t: string, u: AuthUser) {

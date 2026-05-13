@@ -14,7 +14,23 @@ function VerifyEmailContent() {
   React.useEffect(() => {
     if (!token) { setStatus("error"); return; }
     fetch(`${API_BASE}/auth/verify-email?token=${encodeURIComponent(token)}`)
-      .then((r) => setStatus(r.ok ? "success" : "error"))
+      .then((r) => {
+        if (r.ok) {
+          // Update the stored user object so the banner clears without a re-login
+          try {
+            const stored = window.localStorage.getItem("rough_draft_user");
+            if (stored) {
+              const user = JSON.parse(stored);
+              user.email_verified = true;
+              window.localStorage.setItem("rough_draft_user", JSON.stringify(user));
+              window.dispatchEvent(new Event("storage"));
+            }
+          } catch {}
+          setStatus("success");
+        } else {
+          setStatus("error");
+        }
+      })
       .catch(() => setStatus("error"));
   }, [token]);
 
