@@ -517,7 +517,7 @@ function Row({
         >
           <div className="w-10 sm:w-16 shrink-0">
             <div className="font-mono text-sm text-slate-200">#{row.overall}</div>
-            <div className="hidden sm:block text-[11px] text-slate-500">
+            <div className="text-[11px] text-slate-500">
               R{row.round}P{row.pick_in_round}
             </div>
           </div>
@@ -1467,7 +1467,7 @@ export default function DraftBoardPage() {
 
         {/* Mobile filter trigger */}
         <div className="flex sm:hidden items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <select
               className="rounded-xl border border-slate-700 bg-slate-900/60 px-2 py-1.5 text-sm font-medium text-slate-200"
               value={year}
@@ -1475,9 +1475,30 @@ export default function DraftBoardPage() {
             >
               {years.map((y) => <option key={y} value={y}>{y}</option>)}
             </select>
-            {team && <span className="text-xs text-slate-500">{team}</span>}
-            {pos && <span className="text-xs text-slate-500">{pos}</span>}
-            {q && <span className="text-xs text-slate-500 truncate max-w-16">"{q}"</span>}
+            {round && (
+              <span className="inline-flex items-center gap-1 rounded-xl border border-slate-600 bg-slate-800 px-2 py-1 text-xs text-slate-200">
+                R{round}
+                <button type="button" onClick={() => { setRound(null); setOffset(0); }} className="text-slate-400 hover:text-slate-100 leading-none">×</button>
+              </span>
+            )}
+            {team && (
+              <span className="inline-flex items-center gap-1 rounded-xl border border-slate-600 bg-slate-800 px-2 py-1 text-xs text-slate-200">
+                {team}
+                <button type="button" onClick={() => { setTeam(""); setOffset(0); }} className="text-slate-400 hover:text-slate-100 leading-none">×</button>
+              </span>
+            )}
+            {pos && (
+              <span className="inline-flex items-center gap-1 rounded-xl border border-slate-600 bg-slate-800 px-2 py-1 text-xs text-slate-200">
+                {pos}
+                <button type="button" onClick={() => { setPos(""); setOffset(0); }} className="text-slate-400 hover:text-slate-100 leading-none">×</button>
+              </span>
+            )}
+            {q && (
+              <span className="inline-flex items-center gap-1 rounded-xl border border-slate-600 bg-slate-800 px-2 py-1 text-xs text-slate-200 max-w-24 truncate">
+                "{q}"
+                <button type="button" onClick={() => { setQ(""); setOffset(0); }} className="text-slate-400 hover:text-slate-100 leading-none shrink-0">×</button>
+              </span>
+            )}
           </div>
           <button
             type="button"
