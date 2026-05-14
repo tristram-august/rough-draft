@@ -184,23 +184,28 @@ function Pill({ children, variant }: { children: React.ReactNode; variant: Retur
 function ScoreBadge({ cv }: { cv: CommunityVotesOut | null }) {
   const total = cv?.total ?? 0;
   const score = cv?.community_score ?? 0;
-  const label = total === 0 ? "No votes" : `${score}%`;
   return (
     <div className="inline-flex items-center gap-2 rounded-2xl border border-slate-800 bg-slate-950/40 px-3 py-1">
-      <span className="text-xs text-slate-300">{label}</span>
-      <span className="text-[10px] text-slate-500">({total})</span>
+      <span className="text-xs text-slate-300">{total === 0 ? "(0)" : `${score}%`}</span>
+      {total > 0 && <span className="text-[10px] text-slate-500">({total})</span>}
     </div>
   );
 }
 
 function VoteBar({ cv }: { cv: CommunityVotesOut | null }) {
+  const total = cv?.total ?? 0;
+  const score = cv?.community_score ?? 0;
   const success = cv?.success ?? 0;
   const bust = cv?.bust ?? 0;
-  const total = success + bust;
-  const pct = total > 0 ? Math.round((success / total) * 100) : 0;
+  const pct = (success + bust) > 0 ? Math.round((success / (success + bust)) * 100) : 0;
   return (
-    <div className="mt-2 h-2 w-full overflow-hidden rounded-full border border-slate-800 bg-slate-950/50">
-      <div className="h-full bg-slate-200/70" style={{ width: `${pct}%` }} />
+    <div className="mt-1.5 flex items-center gap-1.5">
+      <span className="text-[10px] text-slate-400 shrink-0">
+        {total === 0 ? "(0)" : `${score}% (${total})`}
+      </span>
+      <div className="flex-1 h-1.5 overflow-hidden rounded-full border border-slate-800 bg-slate-950/50">
+        <div className="h-full bg-slate-200/70" style={{ width: `${pct}%` }} />
+      </div>
     </div>
   );
 }
@@ -533,10 +538,9 @@ function Row({
           </div>
         </button>
 
-        {/* Right column: score + mini buttons + bar */}
-        <div className="w-32 sm:w-44 shrink-0">
-          <div className="flex items-center justify-end gap-2">
-            <ScoreBadge cv={cv} />
+        {/* Right column: vote buttons + score bar */}
+        <div className="w-24 sm:w-36 shrink-0">
+          <div className="flex justify-end">
             <MiniVoteButtons yourVote={row.your_vote ?? null} disabled={isVoting || row.voting_locked} onVote={onVote} />
           </div>
           <VoteBar cv={cv} />
