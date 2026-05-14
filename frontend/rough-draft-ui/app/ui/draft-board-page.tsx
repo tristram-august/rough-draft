@@ -1463,11 +1463,17 @@ export default function DraftBoardPage() {
 
         {/* Mobile filter trigger */}
         <div className="flex sm:hidden items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-sm text-slate-300">
-            <span className="font-medium">{year}</span>
-            {team && <span className="text-slate-500">· {team}</span>}
-            {pos && <span className="text-slate-500">· {pos}</span>}
-            {q && <span className="text-slate-500">· "{q}"</span>}
+          <div className="flex items-center gap-2">
+            <select
+              className="rounded-xl border border-slate-700 bg-slate-900/60 px-2 py-1.5 text-sm font-medium text-slate-200"
+              value={year}
+              onChange={(e) => { setYear(Number(e.target.value)); setOffset(0); }}
+            >
+              {years.map((y) => <option key={y} value={y}>{y}</option>)}
+            </select>
+            {team && <span className="text-xs text-slate-500">{team}</span>}
+            {pos && <span className="text-xs text-slate-500">{pos}</span>}
+            {q && <span className="text-xs text-slate-500 truncate max-w-16">"{q}"</span>}
           </div>
           <button
             type="button"
