@@ -27,7 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <main className="mx-auto max-w-5xl px-4 py-6">{children}</main>
 
             <footer className="mx-auto max-w-5xl px-4 pb-8 pt-2 text-xs text-slate-500">
-              <div className="border-t border-slate-800 pt-4">Rough Draft • local dev</div>
+              <div className="border-t border-slate-800 pt-4">Rough Draft • roughdraftfootball.com</div>
             </footer>
           </div>
         </Providers>
