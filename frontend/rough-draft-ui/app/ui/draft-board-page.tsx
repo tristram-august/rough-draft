@@ -604,8 +604,18 @@ function avgStat(rows: OLSeasonStat[], key: keyof OLSeasonStat): number | null {
   return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
 }
 
-function OLDrawerView({ stats, selectedTeam }: { stats: OLSeasonStat[]; selectedTeam: string | null }) {
+function OLDrawerView({ stats, selectedTeam, statRanks, currentOverall, onOpenPick }: {
+  stats: OLSeasonStat[];
+  selectedTeam: string | null;
+  statRanks?: Record<string, ClassRankStat>;
+  currentOverall?: number;
+  onOpenPick?: (year: number, overall: number) => void;
+}) {
   const displayed = selectedTeam ? stats.filter(s => s.team_abbrev === selectedTeam) : stats;
+  const [expandedStat, setExpandedStat] = React.useState<string | null>(null);
+  const r = (key: string) => statRanks?.[key];
+  const toggle = (key: string) => setExpandedStat((s) => s === key ? null : key);
+  const isOpen = (key: string) => expandedStat === key;
 
   if (displayed.length === 0) {
     return (
@@ -637,14 +647,14 @@ function OLDrawerView({ stats, selectedTeam }: { stats: OLSeasonStat[]; selected
       <div className="rounded-3xl border border-slate-800 bg-slate-900/30 p-4">
         <div className="text-xs text-slate-500">Totals</div>
         <div className="mt-2 grid gap-2">
-          <StatRow label="Games" value={totalGames} />
+          <StatRow label="Games" value={totalGames} rank={r("games")} expanded={isOpen("games")} onToggle={() => toggle("games")} currentOverall={currentOverall} onOpenPick={onOpenPick} />
           <StatRow label="Snaps" value={totalSnaps} />
-          <StatRow label="Pressures Allowed" value={totalPressures} />
+          <StatRow label="Pressures Allowed" value={totalPressures} rank={r("pressures_allowed")} expanded={isOpen("pressures_allowed")} onToggle={() => toggle("pressures_allowed")} currentOverall={currentOverall} onOpenPick={onOpenPick} />
           <StatRow label="Hurries Allowed" value={totalHurries} />
           <StatRow label="Hits Allowed" value={totalHits} />
-          <StatRow label="Sacks Allowed" value={totalSacks} />
+          <StatRow label="Sacks Allowed" value={totalSacks} rank={r("sacks_allowed")} expanded={isOpen("sacks_allowed")} onToggle={() => toggle("sacks_allowed")} currentOverall={currentOverall} onOpenPick={onOpenPick} />
           <StatRow label="Penalties" value={totalPenalties} />
-          <StatRow label="Avg PBE%" value={avgPBE != null ? avgPBE.toFixed(1) : "—"} />
+          <StatRow label="Avg PBE%" value={avgPBE != null ? avgPBE.toFixed(1) : "—"} rank={r("pbe")} expanded={isOpen("pbe")} onToggle={() => toggle("pbe")} currentOverall={currentOverall} onOpenPick={onOpenPick} />
         </div>
       </div>
 
@@ -834,7 +844,7 @@ function DrawerTabView({ tab, positionGroup, statRanks, currentOverall, onOpenPi
       <div className="rounded-3xl border border-slate-800 bg-slate-900/30 p-4">
         <div className="text-xs text-slate-500">Totals</div>
         <div className="mt-2 grid gap-2">
-          <StatRow label="Games" value={totals.games} />
+          <StatRow label="Games" value={totals.games} rank={r("games")} expanded={isOpen("games")} onToggle={() => toggle("games")} currentOverall={currentOverall} onOpenPick={onOpenPick} />
 
           {showReceiving ? (
             <>
@@ -1613,7 +1623,7 @@ export default function DraftBoardPage() {
                       onOpenPick={(y, o) => setSelected({ year: y, overall: o })}
                     />
                     {drawerQuery.data.player.position_group === "OL" && (
-                      <OLDrawerView stats={drawerQuery.data.ol_stats ?? []} selectedTeam={selectedTeam} />
+                      <OLDrawerView stats={drawerQuery.data.ol_stats ?? []} selectedTeam={selectedTeam} statRanks={!selectedTeam ? classRanksQuery.data?.stat_ranks : undefined} currentOverall={selected?.overall} onOpenPick={(y, o) => setSelected({ year: y, overall: o })} />
                     )}
                   </>
                 ) : null}

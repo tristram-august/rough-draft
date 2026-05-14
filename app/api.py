@@ -146,7 +146,7 @@ async def pick_class_ranks(
         ol_rows = {r.player_id: r for r in ol_res.all()}
         current = ol_rows.get(pick.player_id)
         if current:
-            for stat, lower in [("pressures_allowed", True), ("sacks_allowed", True)]:
+            for stat, lower in [("games", False), ("pressures_allowed", True), ("sacks_allowed", True)]:
                 vals = {pid: float(getattr(r, stat) or 0) for pid, r in ol_rows.items()}
                 rank, of = _rank(vals, pick.player_id, lower_is_better=lower)
                 if rank:
@@ -163,13 +163,13 @@ async def pick_class_ranks(
 
         if current_gsis and all_gsis:
             stat_cols = {
-                "QB":  ["pass_yards", "pass_tds", "pass_ints"],
-                "RB":  ["rush_yards", "rush_tds", "receptions", "rec_yards"],
-                "WR":  ["rec_yards", "receptions", "rec_tds", "targets"],
-                "TE":  ["rec_yards", "receptions", "rec_tds"],
-                "DL":  ["def_sacks", "def_tackles", "def_tds"],
-                "LB":  ["def_tackles", "def_sacks", "def_ints", "def_tds"],
-                "DB":  ["def_ints", "def_tackles", "def_tds"],
+                "QB":  ["games", "pass_yards", "pass_tds", "pass_ints"],
+                "RB":  ["games", "rush_yards", "rush_tds", "receptions", "rec_yards"],
+                "WR":  ["games", "rec_yards", "receptions", "rec_tds", "targets"],
+                "TE":  ["games", "rec_yards", "receptions", "rec_tds"],
+                "DL":  ["games", "def_sacks", "def_tackles", "def_tds"],
+                "LB":  ["games", "def_tackles", "def_sacks", "def_ints", "def_tds"],
+                "DB":  ["games", "def_ints", "def_tackles", "def_tds"],
             }.get(pos_group, [])
 
             lower_stats = {"pass_ints"}
@@ -177,6 +177,7 @@ async def pick_class_ranks(
             agg_res = await session.execute(
                 select(
                     PlayerGameStat.player_gsis_id,
+                    func.count(func.distinct(PlayerGameStat.game_id)).label("games"),
                     func.sum(PlayerGameStat.pass_yards).label("pass_yards"),
                     func.sum(PlayerGameStat.pass_tds).label("pass_tds"),
                     func.sum(PlayerGameStat.pass_ints).label("pass_ints"),
