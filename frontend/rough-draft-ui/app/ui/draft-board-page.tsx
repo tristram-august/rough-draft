@@ -494,7 +494,7 @@ function Row({
 
   return (
     <div
-      className="rounded-2xl border transition-colors px-4 py-3"
+      className="rounded-2xl border transition-colors px-3 py-2 sm:px-4 sm:py-3"
       style={{
         backgroundColor: color + (hovered ? "CC" : "AA"),
         borderColor: color,
@@ -510,9 +510,9 @@ function Row({
           className="flex min-w-0 flex-1 items-center gap-2 sm:gap-4 text-left"
           aria-label={`Open pick #${row.overall} details`}
         >
-          <div className="w-16 shrink-0">
+          <div className="w-10 sm:w-16 shrink-0">
             <div className="font-mono text-sm text-slate-200">#{row.overall}</div>
-            <div className="text-[11px] text-slate-500">
+            <div className="hidden sm:block text-[11px] text-slate-500">
               R{row.round}P{row.pick_in_round}
             </div>
           </div>
@@ -526,8 +526,9 @@ function Row({
               ) : null}
             </div>
             <div className="mt-1 text-xs text-slate-500">
-              <span className="text-slate-300">{row.team.abbrev}</span> — {row.team.city} {row.team.name}
-              {row.outcome ? <span className="text-slate-500"> • Model: {row.outcome.label}</span> : null}
+              <span className="text-slate-300">{row.team.abbrev}</span>
+              <span className="hidden sm:inline"> — {row.team.city} {row.team.name}</span>
+              {row.outcome ? <span className="hidden sm:inline text-slate-500"> • Model: {row.outcome.label}</span> : null}
             </div>
           </div>
         </button>
@@ -1261,7 +1262,7 @@ export default function DraftBoardPage() {
         team: team || undefined,
         pos: pos || undefined,
         q: q || undefined,
-        limit: PAGE_SIZE,
+        limit: PAGE_SIZE + 1,
         offset,
         token,
       }),
@@ -1289,9 +1290,10 @@ export default function DraftBoardPage() {
     return Array.from(set).sort();
   }, [boardQuery.data]);
 
-  const pageCount = boardQuery.data?.length ?? 0;
+  const rawRows = boardQuery.data ?? [];
+  const canNext = rawRows.length > PAGE_SIZE;
+  const pageRows = canNext ? rawRows.slice(0, PAGE_SIZE) : rawRows;
   const canPrev = offset > 0;
-  const canNext = pageCount === PAGE_SIZE;
 
   async function voteForPick(args: { year: number; overall: number; value: "success" | "bust" }) {
     const key = pickKey(args.year, args.overall);
@@ -1336,6 +1338,75 @@ export default function DraftBoardPage() {
     staleTime: 60_000,
   });
 
+  const [filterSheetOpen, setFilterSheetOpen] = React.useState(false);
+  const activeFilterCount = [round, team, pos, q].filter(Boolean).length;
+  function clearFilters() { setRound(null); setTeam(""); setPos(""); setQ(""); setOffset(0); }
+
+  const filterControls = (
+    <>
+      <div className="flex flex-col gap-1 sm:flex-1">
+        <label className="text-xs text-slate-500">Year</label>
+        <select
+          className="w-full rounded-2xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-sm"
+          value={year}
+          onChange={(e) => setYear(Number(e.target.value))}
+        >
+          {years.map((y) => (
+            <option key={y} value={y}>{y}</option>
+          ))}
+        </select>
+      </div>
+      <div className="flex flex-col gap-1 sm:flex-1">
+        <label className="text-xs text-slate-500">Round</label>
+        <select
+          className="w-full rounded-2xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-sm"
+          value={round ?? ""}
+          onChange={(e) => setRound(e.target.value ? Number(e.target.value) : null)}
+        >
+          <option value="">All rounds</option>
+          {[1, 2, 3, 4, 5, 6, 7].map((r) => (
+            <option key={r} value={r}>Round {r}</option>
+          ))}
+        </select>
+      </div>
+      <div className="flex flex-col gap-1 sm:flex-[2]">
+        <label className="text-xs text-slate-500">Team</label>
+        <select
+          className="w-full rounded-2xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-sm"
+          value={team}
+          onChange={(e) => setTeam(e.target.value)}
+        >
+          <option value="">All teams</option>
+          {uniqueTeams.map(([abbrev, label]) => (
+            <option key={abbrev} value={abbrev}>{label}</option>
+          ))}
+        </select>
+      </div>
+      <div className="flex flex-col gap-1 sm:flex-1">
+        <label className="text-xs text-slate-500">Pos</label>
+        <select
+          className="w-full rounded-2xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-sm"
+          value={pos}
+          onChange={(e) => setPos(e.target.value)}
+        >
+          <option value="">All</option>
+          {uniquePositions.map((p) => (
+            <option key={p} value={p}>{p}</option>
+          ))}
+        </select>
+      </div>
+      <div className="flex flex-col gap-1 sm:flex-[2]">
+        <label className="text-xs text-slate-500">Search</label>
+        <input
+          className="w-full rounded-2xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-sm"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Name / college…"
+        />
+      </div>
+    </>
+  );
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
       <RankingsPanel
@@ -1343,85 +1414,94 @@ export default function DraftBoardPage() {
         open={rankingsPanelOpen}
         onToggle={() => setRankingsPanelOpen((o) => !o)}
       />
-      <div className="mx-auto max-w-5xl px-4 py-8">
-        <div className="grid grid-cols-2 sm:flex gap-3">
-            <div className="flex flex-col gap-1 sm:flex-1">
-              <label className="text-xs text-slate-500">Year</label>
-              <select
-                className="w-full rounded-2xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-sm"
-                value={year}
-                onChange={(e) => setYear(Number(e.target.value))}
-              >
-                {years.map((y) => (
-                  <option key={y} value={y}>
-                    {y}
-                  </option>
-                ))}
-              </select>
-            </div>
 
-            <div className="flex flex-col gap-1 sm:flex-1">
-              <label className="text-xs text-slate-500">Round</label>
-              <select
-                className="w-full rounded-2xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-sm"
-                value={round ?? ""}
-                onChange={(e) => setRound(e.target.value ? Number(e.target.value) : null)}
+      {/* Mobile bottom sheet */}
+      {filterSheetOpen && (
+        <div className="sm:hidden">
+          <div className="fixed inset-0 z-40 bg-black/60" onClick={() => setFilterSheetOpen(false)} />
+          <div className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl border-t border-slate-700 bg-slate-950 p-5 space-y-4">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-sm font-semibold text-slate-200">Filters</span>
+              <button type="button" onClick={() => setFilterSheetOpen(false)} className="text-slate-500 hover:text-slate-300 text-lg leading-none">×</button>
+            </div>
+            {filterControls}
+            <div className="flex gap-2">
+              {activeFilterCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => { clearFilters(); setFilterSheetOpen(false); }}
+                  className="flex-1 rounded-2xl border border-slate-700 py-2.5 text-sm text-slate-400 hover:text-slate-200 transition-colors"
+                >
+                  Clear all
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setFilterSheetOpen(false)}
+                className="flex-1 rounded-2xl border border-slate-600 bg-slate-800 py-2.5 text-sm font-medium text-slate-100 hover:bg-slate-700 transition-colors"
               >
-                <option value="">All rounds</option>
-                {[1, 2, 3, 4, 5, 6, 7].map((r) => (
-                  <option key={r} value={r}>
-                    Round {r}
-                  </option>
-                ))}
-              </select>
+                Show Results
+              </button>
             </div>
+          </div>
+        </div>
+      )}
 
-            <div className="flex flex-col gap-1 sm:flex-[2]">
-              <label className="text-xs text-slate-500">Team</label>
-              <select
-                className="w-full rounded-2xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-sm"
-                value={team}
-                onChange={(e) => setTeam(e.target.value)}
-              >
-                <option value="">All teams</option>
-                {uniqueTeams.map(([abbrev, label]) => (
-                  <option key={abbrev} value={abbrev}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </div>
+      <div className="mx-auto max-w-5xl px-4 py-6 sm:py-8">
 
-            <div className="flex flex-col gap-1 sm:flex-1">
-              <label className="text-xs text-slate-500">Pos</label>
-              <select
-                className="w-full rounded-2xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-sm"
-                value={pos}
-                onChange={(e) => setPos(e.target.value)}
-              >
-                <option value="">All</option>
-                {uniquePositions.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
-                ))}
-              </select>
-            </div>
+        {/* Desktop filters */}
+        <div className="hidden sm:flex gap-3">
+          {filterControls}
+        </div>
+        {activeFilterCount > 0 && (
+          <div className="hidden sm:flex justify-end mt-1">
+            <button type="button" onClick={clearFilters} className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
+              × Clear filters
+            </button>
+          </div>
+        )}
 
-            <div className="col-span-2 flex flex-col gap-1 sm:flex-[2]">
-              <label className="text-xs text-slate-500">Search</label>
-              <input
-                className="w-full rounded-2xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-sm"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Name / college…"
-              />
-            </div>
+        {/* Mobile filter trigger */}
+        <div className="flex sm:hidden items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-sm text-slate-300">
+            <span className="font-medium">{year}</span>
+            {team && <span className="text-slate-500">· {team}</span>}
+            {pos && <span className="text-slate-500">· {pos}</span>}
+            {q && <span className="text-slate-500">· "{q}"</span>}
+          </div>
+          <button
+            type="button"
+            onClick={() => setFilterSheetOpen(true)}
+            className="flex items-center gap-1.5 rounded-2xl border border-slate-700 bg-slate-900/60 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800 transition-colors"
+          >
+            Filters
+            {activeFilterCount > 0 && (
+              <span className="rounded-full bg-slate-600 px-1.5 py-0.5 text-[10px] text-slate-100">{activeFilterCount}</span>
+            )}
+          </button>
         </div>
 
-        <div className="mt-6 flex items-center justify-between">
+        {/* Mobile round tabs */}
+        <div className="flex sm:hidden overflow-x-auto gap-1.5 pt-3 pb-1 -mx-1 px-1">
+          {[null, 1, 2, 3, 4, 5, 6, 7].map((r) => (
+            <button
+              key={r ?? "all"}
+              type="button"
+              onClick={() => { setRound(r); setOffset(0); }}
+              className={`shrink-0 rounded-xl px-3 py-1.5 text-xs font-medium transition-colors ${
+                round === r
+                  ? "bg-slate-700 text-slate-100"
+                  : "border border-slate-800 text-slate-500 hover:text-slate-300"
+              }`}
+            >
+              {r === null ? "All" : `R${r}`}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-4 sm:mt-6 hidden sm:flex items-center justify-between">
           <div className="text-xs text-slate-500">
-            Showing {offset + 1}–{offset + (boardQuery.data?.length ?? 0)}
+            Showing {offset + 1}–{offset + pageRows.length}
           </div>
           <div className="flex gap-2">
             <button
@@ -1450,10 +1530,10 @@ export default function DraftBoardPage() {
             <div className="rounded-3xl border border-red-800/40 bg-red-950/20 p-6 text-red-200">
               {String(boardQuery.error)}
             </div>
-          ) : (boardQuery.data ?? []).length === 0 ? (
+          ) : pageRows.length === 0 ? (
             <div className="rounded-3xl border border-slate-800 bg-slate-900/30 p-6 text-slate-400">No results.</div>
           ) : (
-            (boardQuery.data ?? []).map((r) => {
+            pageRows.map((r) => {
               const key = pickKey(r.year, r.overall);
               return (
                 <Row
