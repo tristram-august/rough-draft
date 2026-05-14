@@ -256,6 +256,22 @@ function authHeaders(token?: string | null): Record<string, string> {
   return h;
 }
 
+type ClassRankEntry = { name: string; year: number; overall: number; value: number };
+type ClassRankStat = { value: number; rank: number; of: number; list: ClassRankEntry[] };
+type ClassRanks = {
+  position: string;
+  position_group: string;
+  pick_rank: number | null;
+  class_size: number;
+  stat_ranks: Record<string, ClassRankStat>;
+};
+
+async function fetchClassRanks(year: number, overall: number): Promise<ClassRanks | null> {
+  const res = await fetch(`${API_BASE}/pick/${year}/${overall}/class-ranks`, { cache: "no-store" });
+  if (!res.ok) return null;
+  return res.json();
+}
+
 async function fetchDraftTeams(year: number): Promise<Array<{ abbrev: string; city: string; name: string }>> {
   const res = await fetch(`${API_BASE}/draft/teams?year=${year}`, { cache: "no-store" });
   if (!res.ok) return [];
@@ -530,11 +546,52 @@ function Row({
 }
 
 
-function StatRow({ label, value }: { label: string; value: React.ReactNode }) {
+function StatRow({
+  label, value, rank, expanded, onToggle, currentOverall, onOpenPick,
+}: {
+  label: string;
+  value: React.ReactNode;
+  rank?: ClassRankStat;
+  expanded?: boolean;
+  onToggle?: () => void;
+  currentOverall?: number;
+  onOpenPick?: (year: number, overall: number) => void;
+}) {
   return (
-    <div className="flex items-center justify-between gap-4 rounded-2xl border border-slate-800 bg-slate-950/20 px-4 py-2">
-      <div className="text-xs text-slate-400">{label}</div>
-      <div className="text-sm text-slate-100">{value}</div>
+    <div className="rounded-2xl border border-slate-800 bg-slate-950/20 overflow-hidden">
+      <div className="flex items-center justify-between gap-4 px-4 py-2">
+        <div className="text-xs text-slate-400">{label}</div>
+        <div className="flex items-center gap-2">
+          {rank && (
+            <button
+              type="button"
+              onClick={onToggle}
+              className="text-[10px] text-slate-500 hover:text-slate-300 transition-colors"
+            >
+              #{rank.rank} of {rank.of} {expanded ? "▲" : "▼"}
+            </button>
+          )}
+          <div className="text-sm text-slate-100">{value}</div>
+        </div>
+      </div>
+      {rank && expanded && (
+        <div className="border-t border-slate-800 px-4 pb-2 pt-1 space-y-0.5">
+          {rank.list.map((entry, i) => (
+            <button
+              key={entry.overall}
+              type="button"
+              onClick={() => onOpenPick?.(entry.year, entry.overall)}
+              className={`w-full flex items-center justify-between px-2 py-1 rounded-xl text-xs transition-colors hover:bg-slate-800/60 ${entry.overall === currentOverall ? "text-slate-100 font-medium" : "text-slate-400"}`}
+            >
+              <span className="flex items-center gap-2">
+                <span className="text-slate-600 w-4 text-right">{i + 1}.</span>
+                <span>{entry.name}</span>
+              </span>
+              <span>{typeof entry.value === "number" && !Number.isInteger(entry.value) ? entry.value.toFixed(1) : entry.value}</span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -749,9 +806,19 @@ function CareerTimeline({
   );
 }
 
-function DrawerTabView({ tab, positionGroup }: { tab: DrawerTab; positionGroup: string | null }) {
+function DrawerTabView({ tab, positionGroup, statRanks, currentOverall, onOpenPick }: {
+  tab: DrawerTab;
+  positionGroup: string | null;
+  statRanks?: Record<string, ClassRankStat>;
+  currentOverall?: number;
+  onOpenPick?: (year: number, overall: number) => void;
+}) {
   const totals = tab.totals;
   const pg = (positionGroup ?? "").toUpperCase();
+  const [expandedStat, setExpandedStat] = React.useState<string | null>(null);
+  const r = (key: string) => statRanks?.[key];
+  const toggle = (key: string) => setExpandedStat((s) => s === key ? null : key);
+  const isOpen = (key: string) => expandedStat === key;
 
   const isOL = pg === "OL";
   const showPassing = !isOL && (totals.passing.att > 0 || pg === "QB");
@@ -771,37 +838,37 @@ function DrawerTabView({ tab, positionGroup }: { tab: DrawerTab; positionGroup: 
 
           {showReceiving ? (
             <>
-              <StatRow label="Targets" value={totals.receiving.targets} />
-              <StatRow label="Receptions" value={totals.receiving.rec} />
-              <StatRow label="Rec Yards" value={totals.receiving.yds} />
-              <StatRow label="Rec TD" value={totals.receiving.td} />
+              <StatRow label="Targets" value={totals.receiving.targets} rank={r("targets")} expanded={isOpen("targets")} onToggle={() => toggle("targets")} currentOverall={currentOverall} onOpenPick={onOpenPick} />
+              <StatRow label="Receptions" value={totals.receiving.rec} rank={r("receptions")} expanded={isOpen("receptions")} onToggle={() => toggle("receptions")} currentOverall={currentOverall} onOpenPick={onOpenPick} />
+              <StatRow label="Rec Yards" value={totals.receiving.yds} rank={r("rec_yards")} expanded={isOpen("rec_yards")} onToggle={() => toggle("rec_yards")} currentOverall={currentOverall} onOpenPick={onOpenPick} />
+              <StatRow label="Rec TD" value={totals.receiving.td} rank={r("rec_tds")} expanded={isOpen("rec_tds")} onToggle={() => toggle("rec_tds")} currentOverall={currentOverall} onOpenPick={onOpenPick} />
             </>
           ) : null}
 
           {showRushing ? (
             <>
               <StatRow label="Rush Att" value={totals.rushing.att} />
-              <StatRow label="Rush Yards" value={totals.rushing.yds} />
-              <StatRow label="Rush TD" value={totals.rushing.td} />
+              <StatRow label="Rush Yards" value={totals.rushing.yds} rank={r("rush_yards")} expanded={isOpen("rush_yards")} onToggle={() => toggle("rush_yards")} currentOverall={currentOverall} onOpenPick={onOpenPick} />
+              <StatRow label="Rush TD" value={totals.rushing.td} rank={r("rush_tds")} expanded={isOpen("rush_tds")} onToggle={() => toggle("rush_tds")} currentOverall={currentOverall} onOpenPick={onOpenPick} />
             </>
           ) : null}
 
           {showPassing ? (
             <>
               <StatRow label="Pass Att" value={totals.passing.att} />
-              <StatRow label="Pass Yards" value={totals.passing.yds} />
-              <StatRow label="Pass TD" value={totals.passing.td} />
-              <StatRow label="INT" value={totals.passing.int} />
+              <StatRow label="Pass Yards" value={totals.passing.yds} rank={r("pass_yards")} expanded={isOpen("pass_yards")} onToggle={() => toggle("pass_yards")} currentOverall={currentOverall} onOpenPick={onOpenPick} />
+              <StatRow label="Pass TD" value={totals.passing.td} rank={r("pass_tds")} expanded={isOpen("pass_tds")} onToggle={() => toggle("pass_tds")} currentOverall={currentOverall} onOpenPick={onOpenPick} />
+              <StatRow label="INT" value={totals.passing.int} rank={r("pass_ints")} expanded={isOpen("pass_ints")} onToggle={() => toggle("pass_ints")} currentOverall={currentOverall} onOpenPick={onOpenPick} />
             </>
           ) : null}
 
           {showDefense ? (
             <>
-              <StatRow label="Tackles" value={totals.defense.tackles} />
-              <StatRow label="Sacks" value={totals.defense.sacks.toFixed(1)} />
-              <StatRow label="INT" value={totals.defense.int} />
+              <StatRow label="Tackles" value={totals.defense.tackles} rank={r("def_tackles")} expanded={isOpen("def_tackles")} onToggle={() => toggle("def_tackles")} currentOverall={currentOverall} onOpenPick={onOpenPick} />
+              <StatRow label="Sacks" value={totals.defense.sacks.toFixed(1)} rank={r("def_sacks")} expanded={isOpen("def_sacks")} onToggle={() => toggle("def_sacks")} currentOverall={currentOverall} onOpenPick={onOpenPick} />
+              <StatRow label="INT" value={totals.defense.int} rank={r("def_ints")} expanded={isOpen("def_ints")} onToggle={() => toggle("def_ints")} currentOverall={currentOverall} onOpenPick={onOpenPick} />
               <StatRow label="Forced Fumbles" value={totals.defense.ff} />
-              <StatRow label="Def TD" value={totals.defense.td} />
+              <StatRow label="Def TD" value={totals.defense.td} rank={r("def_tds")} expanded={isOpen("def_tds")} onToggle={() => toggle("def_tds")} currentOverall={currentOverall} onOpenPick={onOpenPick} />
             </>
           ) : null}
 
@@ -1252,6 +1319,13 @@ export default function DraftBoardPage() {
     enabled: !!drawerGsisId && !!drawerDraftTeam,
   });
 
+  const classRanksQuery = useQuery({
+    queryKey: ["class-ranks", selected?.year, selected?.overall],
+    queryFn: () => fetchClassRanks(selected!.year, selected!.overall),
+    enabled: !!selected,
+    staleTime: 60_000,
+  });
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
       <RankingsPanel
@@ -1430,6 +1504,11 @@ export default function DraftBoardPage() {
                   <div className="mt-1 text-xl font-semibold text-slate-100 leading-tight">{pickQuery.data.player.full_name}</div>
                   <div className="mt-2 flex flex-wrap gap-2">
                     <Pill variant={posVariant(pickQuery.data.player.position)}>{pickQuery.data.player.position}</Pill>
+                    {classRanksQuery.data?.pick_rank ? (
+                      <span className="inline-flex items-center rounded-full border border-slate-700 bg-slate-950 px-2 py-0.5 text-xs text-slate-400">
+                        #{classRanksQuery.data.pick_rank} {pickQuery.data.player.position} in {pickQuery.data.year} ({classRanksQuery.data.class_size} drafted)
+                      </span>
+                    ) : null}
                     {pickQuery.data.player.college ? (
                       <span className="inline-flex items-center rounded-full border border-slate-700 bg-slate-950 px-2 py-0.5 text-xs text-slate-300">
                         {pickQuery.data.player.college}
@@ -1529,6 +1608,9 @@ export default function DraftBoardPage() {
                     <DrawerTabView
                       tab={drawerQuery.data.tabs[selectedTeam ? "selected" : "career"]}
                       positionGroup={drawerQuery.data.player.position_group}
+                      statRanks={!selectedTeam ? classRanksQuery.data?.stat_ranks : undefined}
+                      currentOverall={selected?.overall}
+                      onOpenPick={(y, o) => setSelected({ year: y, overall: o })}
                     />
                     {drawerQuery.data.player.position_group === "OL" && (
                       <OLDrawerView stats={drawerQuery.data.ol_stats ?? []} selectedTeam={selectedTeam} />

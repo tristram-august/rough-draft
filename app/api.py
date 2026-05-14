@@ -58,6 +58,168 @@ async def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+def _class_pos_group(position: str) -> str:
+    pos = (position or "").upper().strip()
+    if pos == "QB": return "QB"
+    if pos in ("RB", "HB", "FB"): return "RB"
+    if pos == "WR": return "WR"
+    if pos == "TE": return "TE"
+    if pos in ("OL", "T", "OT", "G", "OG", "C", "LT", "RT", "LG", "RG"): return "OL"
+    if pos in ("DE", "DT", "NT", "DL", "IDL"): return "DL"
+    if pos in ("LB", "ILB", "OLB", "MLB"): return "LB"
+    if pos in ("DB", "CB", "S", "FS", "SS", "SAF"): return "DB"
+    return pos
+
+
+def _rank(values: dict[str, float], current_key: str, lower_is_better: bool = False) -> tuple[int, int]:
+    """Returns (rank, class_size) for current_key among values. Excludes zeros."""
+    scored = {k: v for k, v in values.items() if v > 0}
+    if current_key not in scored:
+        return (0, len(scored))
+    sorted_keys = sorted(scored, key=lambda k: scored[k], reverse=not lower_is_better)
+    rank = sorted_keys.index(current_key) + 1
+    return (rank, len(scored))
+
+
+@router.get("/pick/{year}/{overall}/class-ranks")
+async def pick_class_ranks(
+    year: int,
+    overall: int,
+    session: AsyncSession = Depends(db_session),
+) -> dict:
+    pick_id = await get_pick_id(session, year=year, overall=overall)
+    if not pick_id:
+        raise HTTPException(status_code=404, detail="Pick not found")
+
+    # Load the pick with player
+    pick_res = await session.execute(
+        select(DraftPick).options(joinedload(DraftPick.player)).where(DraftPick.id == pick_id)
+    )
+    pick = pick_res.scalars().first()
+    if not pick:
+        raise HTTPException(status_code=404, detail="Pick not found")
+
+    pos_group = _class_pos_group(pick.player.position)
+
+    # All classmates of same position group + year
+    classmate_positions = {
+        "QB": ("QB",), "RB": ("RB", "HB", "FB"), "WR": ("WR",), "TE": ("TE",),
+        "OL": ("OL", "T", "OT", "G", "OG", "C"), "DL": ("DE", "DT", "NT", "DL"),
+        "LB": ("LB", "ILB", "OLB", "MLB"), "DB": ("DB", "CB", "S", "FS", "SS", "SAF"),
+    }.get(pos_group, (pick.player.position,))
+
+    classmates_res = await session.execute(
+        select(DraftPick)
+        .options(joinedload(DraftPick.player))
+        .join(Player, DraftPick.player_id == Player.id)
+        .where(DraftPick.year == year, Player.position.in_(classmate_positions))
+        .order_by(DraftPick.overall)
+    )
+    classmates = list(classmates_res.scalars().all())
+
+    pick_rank = next((i + 1 for i, c in enumerate(classmates) if c.id == pick.id), None)
+    class_size = len(classmates)
+
+    stat_ranks: dict = {}
+    # lookup: key (gsis or player_id) → {name, year, overall}
+    pick_info: dict = {c.player_id: {"name": c.player.full_name, "year": c.year, "overall": c.overall} for c in classmates}
+    gsis_info: dict = {c.player.gsis_id: {"name": c.player.full_name, "year": c.year, "overall": c.overall} for c in classmates if c.player.gsis_id}
+
+    def _build_list(vals: dict, lower: bool, info: dict) -> list:
+        scored = {k: v for k, v in vals.items() if v > 0}
+        sorted_keys = sorted(scored, key=lambda k: scored[k], reverse=not lower)
+        return [{"name": info[k]["name"], "year": info[k]["year"], "overall": info[k]["overall"], "value": scored[k]} for k in sorted_keys if k in info]
+
+    if pos_group == "OL":
+        player_ids = [c.player_id for c in classmates]
+        ol_res = await session.execute(
+            select(
+                OLSeasonStat.player_id,
+                func.sum(OLSeasonStat.pressures_allowed).label("pressures_allowed"),
+                func.sum(OLSeasonStat.sacks_allowed).label("sacks_allowed"),
+                func.avg(OLSeasonStat.pbe).label("pbe"),
+                func.sum(OLSeasonStat.games).label("games"),
+            )
+            .where(OLSeasonStat.player_id.in_(player_ids))
+            .group_by(OLSeasonStat.player_id)
+        )
+        ol_rows = {r.player_id: r for r in ol_res.all()}
+        current = ol_rows.get(pick.player_id)
+        if current:
+            for stat, lower in [("pressures_allowed", True), ("sacks_allowed", True)]:
+                vals = {pid: float(getattr(r, stat) or 0) for pid, r in ol_rows.items()}
+                rank, of = _rank(vals, pick.player_id, lower_is_better=lower)
+                if rank:
+                    stat_ranks[stat] = {"value": vals[pick.player_id], "rank": rank, "of": of, "list": _build_list(vals, lower, pick_info)}
+            if current.pbe:
+                pbe_vals = {pid: float(r.pbe or 0) for pid, r in ol_rows.items()}
+                rank, of = _rank(pbe_vals, pick.player_id)
+                if rank:
+                    stat_ranks["pbe"] = {"value": round(float(current.pbe), 1), "rank": rank, "of": of, "list": _build_list(pbe_vals, False, pick_info)}
+    else:
+        gsis_map = {c.player_id: c.player.gsis_id for c in classmates if c.player.gsis_id}
+        all_gsis = list(gsis_map.values())
+        current_gsis = pick.player.gsis_id
+
+        if current_gsis and all_gsis:
+            stat_cols = {
+                "QB":  ["pass_yards", "pass_tds", "pass_ints"],
+                "RB":  ["rush_yards", "rush_tds", "receptions", "rec_yards"],
+                "WR":  ["rec_yards", "receptions", "rec_tds", "targets"],
+                "TE":  ["rec_yards", "receptions", "rec_tds"],
+                "DL":  ["def_sacks", "def_tackles", "def_tds"],
+                "LB":  ["def_tackles", "def_sacks", "def_ints", "def_tds"],
+                "DB":  ["def_ints", "def_tackles", "def_tds"],
+            }.get(pos_group, [])
+
+            lower_stats = {"pass_ints"}
+
+            agg_res = await session.execute(
+                select(
+                    PlayerGameStat.player_gsis_id,
+                    func.sum(PlayerGameStat.pass_yards).label("pass_yards"),
+                    func.sum(PlayerGameStat.pass_tds).label("pass_tds"),
+                    func.sum(PlayerGameStat.pass_ints).label("pass_ints"),
+                    func.sum(PlayerGameStat.rush_yards).label("rush_yards"),
+                    func.sum(PlayerGameStat.rush_tds).label("rush_tds"),
+                    func.sum(PlayerGameStat.receptions).label("receptions"),
+                    func.sum(PlayerGameStat.rec_yards).label("rec_yards"),
+                    func.sum(PlayerGameStat.rec_tds).label("rec_tds"),
+                    func.sum(PlayerGameStat.targets).label("targets"),
+                    func.sum(PlayerGameStat.def_tackles).label("def_tackles"),
+                    func.sum(func.coalesce(PlayerGameStat.def_sacks, 0.0)).label("def_sacks"),
+                    func.sum(PlayerGameStat.def_ints).label("def_ints"),
+                    func.sum(PlayerGameStat.def_tds).label("def_tds"),
+                )
+                .where(
+                    PlayerGameStat.player_gsis_id.in_(all_gsis),
+                    PlayerGameStat.season_type == "REG",
+                )
+                .group_by(PlayerGameStat.player_gsis_id)
+            )
+            agg_map = {r.player_gsis_id: r for r in agg_res.all()}
+
+            for stat in stat_cols:
+                lower = stat in lower_stats
+                vals = {gsis: float(getattr(r, stat) or 0) for gsis, r in agg_map.items()}
+                rank, of = _rank(vals, current_gsis, lower_is_better=lower)
+                if rank and current_gsis in agg_map:
+                    stat_ranks[stat] = {
+                        "value": float(getattr(agg_map[current_gsis], stat) or 0),
+                        "rank": rank,
+                        "of": of,
+                        "list": _build_list(vals, lower, gsis_info),
+                    }
+
+    return {
+        "position": pick.player.position,
+        "position_group": pos_group,
+        "pick_rank": pick_rank,
+        "class_size": class_size,
+        "stat_ranks": stat_ranks,
+    }
+
+
 def _anon_voter_key(x_client_id: str | None) -> str | None:
     if not x_client_id:
         return None
