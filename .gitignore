@@ -11,3 +11,6 @@ alembic_version.txt
 
 # Local data (do not commit)
 data/
+
+# Local agent/editor config
+.claude/

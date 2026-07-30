@@ -33,17 +33,69 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = React.useState<AuthUser | null>(null);
 
   React.useEffect(() => {
-    function loadFromStorage() {
+    let cancelled = false;
+
+    function clearStoredSession() {
+      window.localStorage.removeItem(TOKEN_KEY);
+      window.localStorage.removeItem(USER_KEY);
+      setToken(null);
+      setUser(null);
+    }
+
+    async function loadFromStorage() {
       const storedToken = window.localStorage.getItem(TOKEN_KEY);
       const storedUser = window.localStorage.getItem(USER_KEY);
-      if (storedToken) setToken(storedToken);
+
+      if (!storedToken) {
+        setToken(null);
+        setUser(null);
+        return;
+      }
+
+      // Show the cached identity immediately, then confirm it.
+      setToken(storedToken);
       if (storedUser) {
         try { setUser(JSON.parse(storedUser)); } catch { /* ignore corrupt data */ }
       }
+
+      // A token can outlive the account it names (expired, deleted, or the
+      // database was reset), which would otherwise look like a valid session
+      // until the first request failed. This also refreshes is_mod, so a
+      // promotion takes effect on reload instead of requiring a re-login.
+      try {
+        const res = await fetch(`${API_BASE}/auth/me`, {
+          headers: { Authorization: `Bearer ${storedToken}` },
+        });
+        if (cancelled) return;
+
+        if (!res.ok) {
+          clearStoredSession();
+          return;
+        }
+
+        const me = await res.json();
+        if (cancelled) return;
+
+        const fresh: AuthUser = {
+          user_id: me.user_id,
+          username: me.username,
+          is_mod: me.is_mod ?? false,
+          email_verified: me.email_verified ?? false,
+        };
+        window.localStorage.setItem(USER_KEY, JSON.stringify(fresh));
+        setUser(fresh);
+      } catch {
+        // Network failure, not a rejection — keep the cached session rather
+        // than signing someone out because the API blipped.
+      }
     }
+
     loadFromStorage();
     window.addEventListener("storage", loadFromStorage);
-    return () => window.removeEventListener("storage", loadFromStorage);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("storage", loadFromStorage);
+    };
   }, []);
 
   function persist(t: string, u: AuthUser) {

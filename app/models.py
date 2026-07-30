@@ -358,6 +358,216 @@ class User(Base):
     comments: Mapped[list["Comment"]] = relationship(back_populates="author")
 
 
+class PowerRanking(Base):
+    """
+    One ordered ballot. Deliberately generic: `subject_type` + `subject_group`
+    mean team rankings and positional (QB, RB, ...) rankings share this table and
+    every endpoint below, instead of positional rankings needing a second schema.
+
+    is_official marks the site's editorial list; everything else is a user ballot,
+    and the consensus is averaged across those.
+    """
+    __tablename__ = "power_ranking"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+
+    subject_type: Mapped[str] = mapped_column(String(16), index=True)          # "team" | "player"
+    subject_group: Mapped[str] = mapped_column(String(16), server_default="")  # "" for teams, "QB" etc
+
+    season: Mapped[int] = mapped_column(Integer, index=True)
+    week: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+
+    author_id: Mapped[int] = mapped_column(ForeignKey("user.id"), index=True)
+    is_official: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    author: Mapped["User"] = relationship()
+    entries: Mapped[list["PowerRankingEntry"]] = relationship(
+        back_populates="ranking", cascade="all, delete-orphan", lazy="selectin"
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "subject_type", "subject_group", "season", "week", "author_id",
+            name="uq_power_ranking_ballot",
+        ),
+        Index("ix_power_scope", "subject_type", "subject_group", "season", "week"),
+    )
+
+
+class PowerRankingEntry(Base):
+    __tablename__ = "power_ranking_entry"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    ranking_id: Mapped[int] = mapped_column(
+        ForeignKey("power_ranking.id", ondelete="CASCADE"), index=True
+    )
+
+    rank: Mapped[int] = mapped_column(Integer)
+    # Team abbrev or gsis_id, depending on the parent's subject_type.
+    subject_id: Mapped[str] = mapped_column(String(32), index=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    ranking: Mapped["PowerRanking"] = relationship(back_populates="entries")
+
+    __table_args__ = (
+        UniqueConstraint("ranking_id", "rank", name="uq_power_entry_rank"),
+        UniqueConstraint("ranking_id", "subject_id", name="uq_power_entry_subject"),
+    )
+
+
+class GamePick(Base):
+    """
+    A straight-up winner pick for one game. Mirrors PickVote's anon/user shape so
+    the same X-Client-Id flow works here.
+    """
+    __tablename__ = "game_pick"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    game_id: Mapped[str] = mapped_column(ForeignKey("game.game_id"), index=True)
+
+    voter_type: Mapped[str] = mapped_column(String(8))   # "anon" | "user"
+    voter_key: Mapped[str] = mapped_column(String(64))   # client uuid, or user id as text
+
+    picked_team: Mapped[str] = mapped_column(String(8))
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        UniqueConstraint("game_id", "voter_type", "voter_key", name="uq_pick_one_per_voter_per_game"),
+        Index("ix_game_pick_voter", "voter_type", "voter_key"),
+    )
+
+
+class FantasyRank(Base):
+    """
+    Preseason fantasy draft board for a season — ECR/ADP cheat sheet data.
+    Distinct from PlayerGameStat-derived rankings, which are what actually
+    happened; this is what the market expects before a ball is snapped.
+    """
+    __tablename__ = "fantasy_rank"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    season: Mapped[int] = mapped_column(Integer, index=True)
+
+    overall_rank: Mapped[int] = mapped_column(Integer)
+    tier: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    player_name: Mapped[str] = mapped_column(String(128), index=True)
+    team: Mapped[str | None] = mapped_column(String(8), nullable=True)  # "FA" for free agents
+    position: Mapped[str] = mapped_column(String(8), index=True)        # QB/RB/WR/TE/K/DST
+    position_rank: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    bye_week: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    sos: Mapped[int | None] = mapped_column(Integer, nullable=True)        # 0-5
+    ecr_vs_adp: Mapped[int | None] = mapped_column(Integer, nullable=True)  # +/- slots
+    avg_diff: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    # Best-effort link to player_dim so a board row can reach production history.
+    gsis_id: Mapped[str | None] = mapped_column(String(16), nullable=True, index=True)
+
+    __table_args__ = (
+        UniqueConstraint("season", "overall_rank", name="uq_fantasy_rank_season_rank"),
+        Index("ix_fantasy_rank_season_pos", "season", "position"),
+    )
+
+
+class Game(Base):
+    """
+    Schedule + result for a single game, from the nflverse games.csv feed.
+    game_id matches PlayerGameStat.game_id (e.g. "2026_01_NE_SEA").
+    """
+    __tablename__ = "game"
+
+    game_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+
+    season: Mapped[int] = mapped_column(Integer, index=True)
+    game_type: Mapped[str | None] = mapped_column(String(8), nullable=True)  # REG/WC/DIV/CON/SB
+    week: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+
+    gameday: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
+    weekday: Mapped[str | None] = mapped_column(String(12), nullable=True)
+    gametime: Mapped[str | None] = mapped_column(String(8), nullable=True)  # "20:20", US/Eastern
+
+    away_team: Mapped[str] = mapped_column(String(8), index=True)
+    home_team: Mapped[str] = mapped_column(String(8), index=True)
+    away_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    home_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    result: Mapped[float | None] = mapped_column(Float, nullable=True)  # home margin
+    overtime: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+
+    spread_line: Mapped[float | None] = mapped_column(Float, nullable=True)
+    total_line: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    div_game: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    roof: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    surface: Mapped[str | None] = mapped_column(String(24), nullable=True)
+    stadium: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    location: Mapped[str | None] = mapped_column(String(16), nullable=True)
+
+    away_qb_name: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    home_qb_name: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    away_coach: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    home_coach: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+    __table_args__ = (
+        Index("ix_game_season_week", "season", "week"),
+        Index("ix_game_gameday", "gameday"),
+    )
+
+
+class Post(Base):
+    """A blog post, authored in markdown by a mod."""
+    __tablename__ = "post"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    slug: Mapped[str] = mapped_column(String(160), unique=True, index=True, nullable=False)
+
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    subtitle: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    excerpt: Mapped[str | None] = mapped_column(Text, nullable=True)
+    body_markdown: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
+    cover_image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    status: Mapped[str] = mapped_column(String(16), nullable=False, server_default="draft")  # draft | published
+
+    author_id: Mapped[int] = mapped_column(ForeignKey("user.id"), index=True, nullable=False)
+
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    author: Mapped["User"] = relationship()
+    tags: Mapped[list["PostTag"]] = relationship(
+        back_populates="post", cascade="all, delete-orphan", lazy="selectin"
+    )
+
+    __table_args__ = (
+        CheckConstraint("status IN ('draft', 'published')", name="ck_post_status"),
+        Index("ix_post_status_published", "status", "published_at"),
+    )
+
+
+class PostTag(Base):
+    __tablename__ = "post_tag"
+
+    post_id: Mapped[int] = mapped_column(ForeignKey("post.id", ondelete="CASCADE"), primary_key=True)
+    tag: Mapped[str] = mapped_column(String(32), primary_key=True)
+
+    post: Mapped["Post"] = relationship(back_populates="tags")
+
+    __table_args__ = (
+        Index("ix_post_tag_tag", "tag"),
+    )
+
+
 class Comment(Base):
     __tablename__ = "comment"
 

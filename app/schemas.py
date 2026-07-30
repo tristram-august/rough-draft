@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import date, datetime
 from pydantic import BaseModel, Field, field_validator
 from typing import Literal
@@ -198,4 +199,356 @@ class ProfileOut(BaseModel):
     total_comments: int
     votes: list[ProfileVoteOut]
     comments: list[ProfileCommentOut]
+
+
+# ── Blog ──────────────────────────────────────────────────────────────────────
+
+PostStatusLiteral = Literal["draft", "published"]
+
+_SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+
+
+class PostIn(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    slug: str | None = Field(default=None, max_length=160)
+    subtitle: str | None = Field(default=None, max_length=300)
+    excerpt: str | None = Field(default=None, max_length=500)
+    body_markdown: str = Field(default="", max_length=200_000)
+    cover_image_url: str | None = Field(default=None, max_length=2000)
+    status: PostStatusLiteral = "draft"
+    tags: list[str] = Field(default_factory=list, max_length=10)
+
+    @field_validator("slug")
+    @classmethod
+    def slug_shape(cls, v: str | None) -> str | None:
+        if v is None or v == "":
+            return None
+        v = v.strip().lower()
+        if not _SLUG_RE.match(v):
+            raise ValueError("Slug may only contain lowercase letters, numbers, and single hyphens")
+        return v
+
+    @field_validator("tags")
+    @classmethod
+    def normalize_tags(cls, v: list[str]) -> list[str]:
+        out: list[str] = []
+        for raw in v:
+            tag = raw.strip().lower()
+            if not tag:
+                continue
+            if len(tag) > 32:
+                raise ValueError("Tags must be 32 characters or fewer")
+            if tag not in out:
+                out.append(tag)
+        return out
+
+
+class PostSummary(BaseModel):
+    """Listing shape — no body, so the index stays light."""
+    id: int
+    slug: str
+    title: str
+    subtitle: str | None = None
+    excerpt: str | None = None
+    cover_image_url: str | None = None
+    status: PostStatusLiteral
+    author_username: str
+    tags: list[str] = Field(default_factory=list)
+    reading_minutes: int
+    published_at: datetime | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class PostOut(PostSummary):
+    body_markdown: str
+
+
+class PostListOut(BaseModel):
+    posts: list[PostSummary]
+    total: int
+
+
+class TagCountOut(BaseModel):
+    tag: str
+    count: int
+
+
+# ── Fantasy ───────────────────────────────────────────────────────────────────
+
+ScoringLiteral = Literal["ppr", "half", "std"]
+FantasyPositionLiteral = Literal["ALL", "QB", "RB", "WR", "TE", "FLEX"]
+FantasySortLiteral = Literal[
+    "total",
+    "ppg",
+    "games",
+    "name",
+    "td",           # pass + rush + rec TDs combined
+    "pass_yards",
+    "pass_tds",
+    "pass_ints",
+    "rush_yards",
+    "rush_tds",
+    "receptions",
+    "rec_yards",
+    "rec_tds",
+]
+FantasyDirectionLiteral = Literal["asc", "desc"]
+
+
+class FantasyStatLine(BaseModel):
+    pass_yards: int = 0
+    pass_tds: int = 0
+    pass_ints: int = 0
+    rush_yards: int = 0
+    rush_tds: int = 0
+    receptions: int = 0
+    rec_yards: int = 0
+    rec_tds: int = 0
+    fumbles_lost: int = 0
+
+
+class FantasyLeaderRow(BaseModel):
+    rank: int
+    gsis_id: str
+    name: str
+    position: str | None = None
+    team: str | None = None
+    headshot: str | None = None
+    games: int
+    fantasy_points: float
+    points_per_game: float
+    stats: FantasyStatLine
+
+
+class FantasyLeaderboardOut(BaseModel):
+    season: int
+    week: int | None = None
+    season_type: str
+    scoring: ScoringLiteral
+    position: FantasyPositionLiteral
+    sort: FantasySortLiteral
+    direction: FantasyDirectionLiteral = "desc"
+    total: int
+    rows: list[FantasyLeaderRow]
+
+
+class FantasyGameRow(BaseModel):
+    season: int
+    week: int | None = None
+    season_type: str | None = None
+    team: str | None = None
+    opponent: str | None = None
+    fantasy_points: float
+    stats: FantasyStatLine
+
+
+class FantasyPlayerSeasonOut(BaseModel):
+    season: int
+    team: str | None = None
+    games: int
+    fantasy_points: float
+    points_per_game: float
+    stats: FantasyStatLine
+
+
+class FantasyPlayerOut(BaseModel):
+    gsis_id: str
+    name: str
+    position: str | None = None
+    headshot: str | None = None
+    scoring: ScoringLiteral
+    seasons: list[FantasyPlayerSeasonOut]
+    games: list[FantasyGameRow]
+
+
+class FantasyScoringPresetOut(BaseModel):
+    key: ScoringLiteral
+    label: str
+    points_per_reception: float
+
+
+# ── Fantasy draft board (preseason ECR/ADP) ───────────────────────────────────
+
+class FantasyBoardRow(BaseModel):
+    overall_rank: int
+    tier: int | None = None
+    player_name: str
+    team: str | None = None
+    position: str
+    position_rank: int | None = None
+    bye_week: int | None = None
+    sos: int | None = None
+    ecr_vs_adp: int | None = None
+    avg_diff: float | None = None
+    gsis_id: str | None = None   # present when linked to production history
+
+
+class FantasyBoardOut(BaseModel):
+    season: int
+    total: int
+    positions: list[str]
+    rows: list[FantasyBoardRow]
+
+
+# ── Schedule ──────────────────────────────────────────────────────────────────
+
+class GameOut(BaseModel):
+    game_id: str
+    season: int
+    game_type: str | None = None
+    week: int | None = None
+    gameday: date | None = None
+    weekday: str | None = None
+    gametime: str | None = None          # US/Eastern, "20:20"
+    kickoff_et: datetime | None = None   # gameday + gametime, naive Eastern
+
+    away_team: str
+    home_team: str
+    away_name: str | None = None
+    home_name: str | None = None
+    away_score: int | None = None
+    home_score: int | None = None
+    final: bool = False
+
+    spread_line: float | None = None
+    total_line: float | None = None
+    div_game: bool | None = None
+    stadium: str | None = None
+
+
+class UpcomingScheduleOut(BaseModel):
+    season: int | None = None
+    week: int | None = None
+    game_type: str | None = None
+    days_until_kickoff: int | None = None
+    first_kickoff_et: datetime | None = None
+    in_season: bool = False
+    games: list[GameOut]
+
+
+# ── Pick'em ───────────────────────────────────────────────────────────────────
+
+class PickIn(BaseModel):
+    picked_team: str = Field(min_length=2, max_length=8)
+
+
+class PickSplitOut(BaseModel):
+    """How the community split on a game."""
+    away: int = 0
+    home: int = 0
+    total: int = 0
+
+
+class SlateGameOut(GameOut):
+    locked: bool = False           # kickoff has passed
+    your_pick: str | None = None
+    split: PickSplitOut
+    winner: str | None = None      # set once final; None on a tie
+    your_result: str | None = None  # "win" | "loss" | "push" once graded
+
+
+class SlateOut(BaseModel):
+    season: int | None = None
+    week: int | None = None
+    game_type: str | None = None
+    games: list[SlateGameOut]
+
+
+class PickLeaderRow(BaseModel):
+    rank: int
+    display_name: str
+    voter_type: str
+    is_you: bool = False
+    wins: int
+    losses: int
+    pushes: int
+    graded: int
+    pct: float
+
+
+class PickLeaderboardOut(BaseModel):
+    season: int
+    week: int | None = None
+    scope: Literal["week", "season"]
+    rows: list[PickLeaderRow]
+
+
+# ── Power rankings ────────────────────────────────────────────────────────────
+
+PowerSubjectLiteral = Literal["team", "player"]
+
+
+class PowerSubjectOut(BaseModel):
+    """Something rankable — a team or a player."""
+    subject_id: str          # team abbrev, or gsis_id
+    name: str
+    subtitle: str | None = None   # team name for players, division for teams
+    image: str | None = None
+
+
+class PowerEntryOut(BaseModel):
+    rank: int
+    subject_id: str
+    name: str
+    subtitle: str | None = None
+    image: str | None = None
+    note: str | None = None
+
+    previous_rank: int | None = None
+    movement: int | None = None       # + is upward; None when there's no prior week
+    consensus_rank: float | None = None
+    consensus_ballots: int = 0
+    your_rank: int | None = None
+
+
+class PowerRankingOut(BaseModel):
+    subject_type: PowerSubjectLiteral
+    subject_group: str = ""
+    season: int
+    week: int | None = None
+    has_official: bool = False
+    author_username: str | None = None
+    updated_at: datetime | None = None
+    ballot_count: int = 0
+    entries: list[PowerEntryOut]
+
+
+class PowerBallotIn(BaseModel):
+    """Ordered subject ids, best first. Rank is derived from position."""
+    subject_ids: list[str] = Field(min_length=1, max_length=64)
+    notes: dict[str, str] = Field(default_factory=dict)
+
+    @field_validator("subject_ids")
+    @classmethod
+    def no_duplicates(cls, v: list[str]) -> list[str]:
+        cleaned = [s.strip() for s in v if s and s.strip()]
+        if len(set(cleaned)) != len(cleaned):
+            raise ValueError("A subject can only appear once in a ballot")
+        return cleaned
+
+
+class PowerScopeOut(BaseModel):
+    """A season/week that has at least one ranking, for the picker."""
+    season: int
+    week: int | None = None
+    has_official: bool = False
+    ballot_count: int = 0
+
+
+# ── News ──────────────────────────────────────────────────────────────────────
+
+class NewsItemOut(BaseModel):
+    headline: str
+    description: str | None = None
+    published: datetime | None = None
+    url: str | None = None
+    image: str | None = None
+
+
+class NewsFeedOut(BaseModel):
+    items: list[NewsItemOut]
+    fetched_at: datetime
+    stale: bool = False   # served from cache after an upstream failure
+    source: str = "ESPN"
 
