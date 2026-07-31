@@ -29,6 +29,12 @@ export function MockDraftButton() {
   const [mounted, setMounted] = React.useState(false);
   const frameRef = React.useRef<HTMLIFrameElement>(null);
 
+  // Iframes cache independently of a parent hard-refresh, which is how a stale
+  // copy of the simulator survives a redeploy. One cache-buster per page load
+  // keeps it fresh without refetching on every open.
+  const [cacheBust] = React.useState(() => Date.now());
+  const frameSrc = `${MOCK_DRAFT_URL}?v=${cacheBust}`;
+
   React.useEffect(() => setMounted(true), []);
 
   const canEmail = Boolean(user && token);
@@ -136,7 +142,7 @@ export function MockDraftButton() {
 
             <iframe
               ref={frameRef}
-              src={MOCK_DRAFT_URL}
+              src={frameSrc}
               title="Mock draft simulator"
               onLoad={() =>
                 frameRef.current?.contentWindow?.postMessage(
