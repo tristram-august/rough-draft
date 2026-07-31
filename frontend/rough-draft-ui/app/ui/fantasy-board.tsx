@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { Segmented } from "./segmented";
+import { MockDraftButton } from "./mock-draft-button";
 import { fetchBoard, type FantasyBoardRow } from "../lib/fantasy";
 
 const POSITION_COLORS: Record<string, string> = {
@@ -79,6 +80,9 @@ export function FantasyBoard({ season }: { season: number }) {
             {data.total} player{data.total === 1 ? "" : "s"}
           </span>
         )}
+        <span className="ml-auto">
+          <MockDraftButton />
+        </span>
       </div>
 
       {isLoading && <p className="text-sm text-slate-500">Loading…</p>}
@@ -177,9 +181,11 @@ export function FantasyBoard({ season }: { season: number }) {
       )}
 
       <p className="mt-4 text-xs leading-relaxed text-slate-600">
-        Preseason consensus board. <span className="text-slate-500">vs ADP</span> is expert
-        consensus rank minus average draft position — positive means he tends to last longer
-        than he&apos;s ranked. Names link to production history where we could match the player.
+        Preseason consensus board.{" "}
+        <span className="text-slate-500">vs ADP</span>{" "}
+        is expert consensus rank minus average draft position — positive means he tends to
+        last longer than he&apos;s ranked. Names link to production history where we could
+        match the player.
       </p>
     </div>
   );

@@ -46,6 +46,27 @@ async def send_verification_email(to: str, token: str) -> None:
     )
 
 
+async def send_mock_draft_summary(to: str, summary: str, slot: int, rounds: int, value_index: float) -> None:
+    """Mail a completed mock draft back to the person who ran it."""
+    from html import escape
+
+    value_str = f"{'+' if value_index >= 0 else ''}{value_index:.1f}"
+    await _send(
+        to=to,
+        subject=f"Your mock draft — slot {slot}, {rounds} rounds",
+        html=f"""
+        <p>Here's the mock draft you just finished on Rough Draft Football.</p>
+        <p><b>Draft slot:</b> {slot}<br/>
+           <b>Rounds:</b> {rounds}<br/>
+           <b>Value index:</b> {value_str}</p>
+        <pre style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;
+                    background:#f6f7f9;padding:12px;border-radius:8px;
+                    white-space:pre-wrap;">{escape(summary)}</pre>
+        <p><a href="{settings.app_url}/fantasy">Run another one</a></p>
+        """,
+    )
+
+
 async def send_reset_email(to: str, token: str) -> None:
     url = f"{settings.app_url}/auth/reset-password?token={token}"
     await _send(
