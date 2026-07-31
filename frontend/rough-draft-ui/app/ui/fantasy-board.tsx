@@ -89,7 +89,7 @@ export function FantasyBoard({ season }: { season: number }) {
 
       {rows.length > 0 && (
         <div className="overflow-x-auto rounded-3xl border border-slate-800">
-          <table className="w-full min-w-[620px] border-collapse text-sm">
+          <table className="w-full sm:min-w-[620px] border-collapse text-sm">
             <thead className="bg-slate-900/60">
               <tr className="text-xs uppercase tracking-wide text-slate-500">
                 <th className="px-3 py-2.5 text-left font-semibold">#</th>

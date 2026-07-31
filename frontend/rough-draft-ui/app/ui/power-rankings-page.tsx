@@ -39,7 +39,69 @@ function MovementArrow({ movement }: { movement: number | null }) {
   );
 }
 
-/** Reorderable list: drag on desktop, arrow buttons everywhere. */
+/**
+ * Editable rank number — the fast path for big jumps (typing "2" beats
+ * dragging or clicking ↑ twenty-four times). Only commits on blur/Enter, and
+ * re-syncs to the real rank whenever another row's move shifts this one, but
+ * not while the field is focused (that would fight the user's typing).
+ */
+function RankInput({
+  rank,
+  max,
+  label,
+  onCommit,
+}: {
+  rank: number;
+  max: number;
+  label: string;
+  onCommit: (nextRank: number) => void;
+}) {
+  const [draft, setDraft] = React.useState(String(rank));
+  const [focused, setFocused] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!focused) setDraft(String(rank));
+  }, [rank, focused]);
+
+  function commit() {
+    const next = Math.round(Number(draft));
+    if (Number.isFinite(next) && next >= 1 && next <= max && next !== rank) {
+      onCommit(next);
+    } else {
+      setDraft(String(rank));
+    }
+  }
+
+  return (
+    <input
+      type="number"
+      inputMode="numeric"
+      min={1}
+      max={max}
+      aria-label={`Set rank for ${label}`}
+      value={draft}
+      onFocus={(e) => {
+        setFocused(true);
+        e.target.select();
+      }}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => {
+        setFocused(false);
+        commit();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+        if (e.key === "Escape") {
+          setDraft(String(rank));
+          (e.target as HTMLInputElement).blur();
+        }
+      }}
+      className="w-11 shrink-0 rounded-md border border-slate-800 bg-slate-950/60 px-1 py-1 text-center text-xs font-medium text-slate-200 tabular-nums outline-none transition-colors [appearance:textfield] focus:border-sky-600 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+    />
+  );
+}
+
+/** Reorderable list: type a rank to jump, drag on desktop, or nudge with arrows. */
 function BallotEditor({
   order,
   subjects,
@@ -81,7 +143,12 @@ function BallotEditor({
                 : "border-slate-800 bg-slate-900/40 hover:border-slate-700"
             }`}
           >
-            <span className="w-6 shrink-0 text-xs text-slate-500 tabular-nums">{i + 1}</span>
+            <RankInput
+              rank={i + 1}
+              max={order.length}
+              label={subject?.name ?? id}
+              onCommit={(nextRank) => move(i, nextRank - 1)}
+            />
             <span className="cursor-grab select-none text-slate-700" aria-hidden>
               ⠿
             </span>
@@ -200,7 +267,7 @@ export default function PowerRankingsPage() {
         title={choice.subject_type === "team" ? "Team power rankings" : `${choice.subject_group} rankings`}
         subtitle={
           editing
-            ? "Drag to reorder, or use the arrows. Position becomes the rank."
+            ? "Type a rank to jump straight there, or drag and use the arrows for small moves."
             : "The site's ranking, with community consensus alongside it."
         }
       >
@@ -310,7 +377,7 @@ export default function PowerRankingsPage() {
 
           {entries.length > 0 && (
             <div className="overflow-x-auto rounded-3xl border border-slate-800">
-              <table className="w-full min-w-[520px] border-collapse text-sm">
+              <table className="w-full sm:min-w-[520px] border-collapse text-sm">
                 <thead className="bg-slate-900/60">
                   <tr className="text-xs uppercase tracking-wide text-slate-500">
                     <th className="px-3 py-2.5 text-left font-semibold">#</th>

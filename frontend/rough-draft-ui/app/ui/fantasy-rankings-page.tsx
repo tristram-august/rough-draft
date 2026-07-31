@@ -342,7 +342,7 @@ export default function FantasyRankingsPage({
             boardQuery.isFetching ? "opacity-60" : ""
           }`}
         >
-          <table className="w-full min-w-[560px] border-collapse text-sm">
+          <table className="w-full sm:min-w-[560px] border-collapse text-sm">
             <thead className="bg-slate-900/60">
               <tr className="text-xs uppercase tracking-wide text-slate-500">
                 <th scope="col" className="px-3 py-2.5 text-left font-semibold">

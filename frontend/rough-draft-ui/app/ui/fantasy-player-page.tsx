@@ -130,7 +130,7 @@ export default function FantasyPlayerPage({
         <p className="text-sm text-slate-500">No regular season stats on record.</p>
       ) : (
         <div className="overflow-x-auto rounded-3xl border border-slate-800">
-          <table className="w-full min-w-[520px] border-collapse text-sm">
+          <table className="w-full sm:min-w-[520px] border-collapse text-sm">
             <thead className="bg-slate-900/60">
               <tr>
                 <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -193,7 +193,7 @@ export default function FantasyPlayerPage({
             {activeSeason} game log
           </h2>
           <div className="overflow-x-auto rounded-3xl border border-slate-800">
-            <table className="w-full min-w-[520px] border-collapse text-sm">
+            <table className="w-full sm:min-w-[520px] border-collapse text-sm">
               <thead className="bg-slate-900/60">
                 <tr>
                   <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">

@@ -28,7 +28,7 @@ export default async function Page() {
   // Each panel fails independently — a dead upstream shouldn't blank the page.
   const [postsResult, newsResult, fantasyResult] = await Promise.allSettled([
     fetchPosts({ limit: 6 }),
-    fetchNews(6),
+    fetchNews(18), // shows 6 at a time; "Show more" reveals the rest client-side
     loadFantasyLeaders(),
   ]);
 
