@@ -2,6 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mock Draft Simulator</title>
 <style>
 :root { color-scheme: dark; }
@@ -224,6 +225,36 @@ table.draftgrid td.usercol { background: rgba(249, 115, 22, 0.12); }
 .history-meta { color: #94a3b8; font-size: 11.5px; }
 .empty-note { color: #94a3b8; font-size: 13px; padding: 8px 0; }
 .banner { background: rgba(249, 115, 22, 0.12); border: 1px solid rgba(249, 115, 22, 0.35); border-radius: 8px; padding: 10px 12px; font-size: 12.5px; margin-bottom: 12px; color: #fdba74; }
+
+/* ---- Mobile ---------------------------------------------------------------
+   The desktop layout is a two-column flex row with a fixed 320px sidebar that
+   refuses to shrink. Below this width the columns stack so the draft board and
+   player list get the full viewport, with roster/best-available beneath it. */
+@media (max-width: 860px) {
+  .wrap { flex-direction: column; gap: 12px; }
+  .sidebar { width: 100%; position: static; top: auto; }
+  .main { width: 100%; }
+
+  .screen { padding: 0 12px 12px 12px; }
+  .topnav { padding: 12px 12px 0 12px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .tab { white-space: nowrap; flex-shrink: 0; }
+
+  .card { padding: 12px; margin-bottom: 12px; }
+  h1 { font-size: 17px; }
+
+  /* Fixed-width inputs overflow narrow screens. */
+  input[type="text"] { width: 100%; max-width: 100%; }
+  .controls { gap: 6px; }
+  .controls select, .controls button { flex-shrink: 0; }
+
+  /* Keep the sticky table header from covering an already-short viewport. */
+  thead th { position: static; }
+
+  .clock-bar { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .clock-actions { width: 100%; flex-wrap: wrap; }
+
+  .setup-grid { grid-template-columns: 1fr; gap: 12px; }
+}
 </style>
 </head>
 <body>

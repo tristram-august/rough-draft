@@ -111,13 +111,16 @@ export function MockDraftButton() {
             className="fixed inset-0 z-[120] flex flex-col bg-slate-950/95 backdrop-blur-sm"
           >
             <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-800 px-4 py-2.5">
-              <span className="text-sm font-semibold text-slate-200">Mock Draft Simulator</span>
-              <div className="flex items-center gap-2">
+              {/* Title truncates so the actions never wrap on a narrow phone. */}
+              <span className="truncate text-sm font-semibold text-slate-200">
+                Mock Draft Simulator
+              </span>
+              <div className="flex shrink-0 items-center gap-2">
                 <a
                   href={MOCK_DRAFT_URL}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="rounded-lg border border-slate-800 px-2.5 py-1 text-xs text-slate-400 transition-colors hover:border-slate-700 hover:text-slate-200"
+                  className="hidden rounded-lg border border-slate-800 px-2.5 py-1 text-xs text-slate-400 transition-colors hover:border-slate-700 hover:text-slate-200 sm:inline-block"
                 >
                   Open in new tab
                 </a>
