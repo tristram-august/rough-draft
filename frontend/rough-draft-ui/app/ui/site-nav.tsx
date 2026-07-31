@@ -8,7 +8,7 @@ import { usePathname } from "next/navigation";
 export const NAV_ITEMS = [
   { href: "/picks", label: "Picks" },
   { href: "/power", label: "Power Rankings" },
-  { href: "/draft", label: "Real Draft" },
+  { href: "/draft", label: "Rough Draft" },
   { href: "/fantasy", label: "Fantasy Draft" },
 ] as const;
 

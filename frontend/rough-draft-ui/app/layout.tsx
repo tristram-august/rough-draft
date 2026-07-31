@@ -53,7 +53,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     Power Rankings
                   </Link>
                   <Link href="/draft" className="hover:text-slate-300 transition-colors">
-                    Real Draft
+                    Rough Draft
                   </Link>
                   <Link href="/fantasy" className="hover:text-slate-300 transition-colors">
                     Fantasy Draft
