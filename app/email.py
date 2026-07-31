@@ -35,6 +35,10 @@ def _send_via_resend_api(to: str, subject: str, html: str) -> None:
         headers={
             "Authorization": f"Bearer {settings.smtp_password}",
             "Content-Type": "application/json",
+            # Cloudflare fronts api.resend.com and blocks urllib's default
+            # "Python-urllib/x.y" User-Agent as a bot signature (their error
+            # code 1010) before the request ever reaches Resend's own auth.
+            "User-Agent": "roughdraftfootball.com (email sender)",
         },
     )
     with urllib.request.urlopen(req, timeout=15) as resp:
