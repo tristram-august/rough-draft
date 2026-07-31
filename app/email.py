@@ -1,36 +1,61 @@
 from __future__ import annotations
 
+import asyncio
+import json
 import logging
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-
-import aiosmtplib
+import urllib.error
+import urllib.request
 
 from app.settings import settings
 
 logger = logging.getLogger(__name__)
 
+RESEND_API_URL = "https://api.resend.com/emails"
+
+
+def _send_via_resend_api(to: str, subject: str, html: str) -> None:
+    """
+    Blocking call — run via asyncio.to_thread.
+
+    Uses Resend's HTTP API rather than their SMTP relay. Confirmed in
+    production that outbound TCP to smtp.resend.com:587 times out (Railway
+    doesn't route it) while outbound HTTPS works fine — the same failure
+    mode PaaS platforms commonly have with raw SMTP ports. Resend's API key
+    doubles as their documented SMTP password, so this reuses the existing
+    SMTP_PASSWORD setting as the API bearer token; no new secret needed.
+    """
+    payload = json.dumps(
+        {"from": settings.smtp_from, "to": [to], "subject": subject, "html": html}
+    ).encode("utf-8")
+
+    req = urllib.request.Request(
+        RESEND_API_URL,
+        data=payload,
+        method="POST",
+        headers={
+            "Authorization": f"Bearer {settings.smtp_password}",
+            "Content-Type": "application/json",
+        },
+    )
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        resp.read()
+
 
 async def _send(to: str, subject: str, html: str) -> None:
-    if not settings.smtp_host:
+    if not settings.smtp_password:
         # Email not configured — log the link so dev can still test flows
-        logger.info("EMAIL (not sent — SMTP not configured)\nTo: %s\nSubject: %s\n%s", to, subject, html)
+        logger.info("EMAIL (not sent — no Resend API key configured)\nTo: %s\nSubject: %s\n%s", to, subject, html)
         return
 
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"] = settings.smtp_from
-    msg["To"] = to
-    msg.attach(MIMEText(html, "html"))
-
-    await aiosmtplib.send(
-        msg,
-        hostname=settings.smtp_host,
-        port=settings.smtp_port,
-        username=settings.smtp_user or None,
-        password=settings.smtp_password or None,
-        start_tls=True,
-    )
+    try:
+        await asyncio.to_thread(_send_via_resend_api, to, subject, html)
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", "replace")
+        logger.error("Resend API rejected email to %s (HTTP %s): %s", to, e.code, body)
+        raise
+    except urllib.error.URLError as e:
+        logger.error("Resend API unreachable sending to %s: %s", to, e)
+        raise
 
 
 async def send_verification_email(to: str, token: str) -> None:

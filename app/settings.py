@@ -20,7 +20,10 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000"
     # Draft classes from this year onwards have voting disabled (players haven't played a full season)
     voting_lock_from_year: int = 2026
-    # Email / SMTP — leave smtp_host empty to disable email sending (dev mode)
+    # Email — sent via Resend's HTTP API (see app/email.py), not raw SMTP.
+    # smtp_password doubles as the Resend API key; leave it empty to disable
+    # email sending (dev mode). smtp_host/port/user are unused now but kept
+    # so existing Railway variables don't need to be touched.
     smtp_host: str = ""
     smtp_port: int = 587
     smtp_user: str = ""
