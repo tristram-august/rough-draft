@@ -274,16 +274,40 @@ async def my_ballot(
     session: AsyncSession = Depends(db_session),
     current_user: User = Depends(get_current_user),
 ) -> list[str]:
-    """Your saved order, best first. Empty when you haven't ranked this scope."""
-    subject_type, subject_group = _normalize_scope(subject_type, subject_group)
-    ballots = await _load_ballots(session, subject_type, subject_group, season, week)
+    """
+    Your saved order, best first, for editing.
 
-    if official:
-        if not current_user.is_mod:
-            raise HTTPException(status_code=403, detail="Mod access required")
-        target = next((b for b in ballots if b.is_official), None)
-    else:
-        target = next((b for b in ballots if b.author_id == current_user.id and not b.is_official), None)
+    If this exact week has nothing yet, falls back to your closest prior week
+    in the same season (preseason counts as earliest) — week-to-week movement
+    is usually incremental, so a new week should start from your last ballot
+    instead of an unranked list. Only an exact match is used for a scope with
+    nothing earlier than it (preseason itself has no fallback).
+    """
+    subject_type, subject_group = _normalize_scope(subject_type, subject_group)
+
+    if official and not current_user.is_mod:
+        raise HTTPException(status_code=403, detail="Mod access required")
+
+    # Every ballot of this author's for the scope, any week, so the closest
+    # prior one can be found without a query per week walked back.
+    filters = [
+        PowerRanking.subject_type == subject_type,
+        PowerRanking.subject_group == subject_group,
+        PowerRanking.season == season,
+        PowerRanking.is_official == official,
+    ]
+    if not official:
+        filters.append(PowerRanking.author_id == current_user.id)
+
+    ballots = list((await session.execute(select(PowerRanking).where(*filters))).scalars().all())
+
+    def chrono(b: PowerRanking) -> int:
+        return -1 if b.week is None else b.week  # preseason sorts first
+
+    target = next((b for b in ballots if b.week == week), None)
+    if target is None and week is not None:
+        earlier = [b for b in ballots if chrono(b) < week]
+        target = max(earlier, key=chrono, default=None)
 
     if target is None:
         return []
