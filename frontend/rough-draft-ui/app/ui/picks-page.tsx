@@ -5,7 +5,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "./page-header";
 import { Segmented } from "./segmented";
 import { useAuth } from "../contexts/auth-context";
-import { formatGameDay, formatKickoffTime } from "../lib/dashboard";
+import { formatGameDay, formatKickoffTime, spreadLabel } from "../lib/dashboard";
+import { teamColor } from "../lib/team-colors";
 import {
   fetchPickLeaderboard,
   fetchSlate,
@@ -32,36 +33,63 @@ function TeamButton({
   sharePct: number | null;
   onPick: () => void;
 }) {
-  const base =
-    "relative flex-1 overflow-hidden rounded-xl border px-3 py-2.5 text-left transition-colors";
-  const state = picked
-    ? "border-sky-600 bg-sky-950/40 text-slate-100"
-    : locked
-      ? "border-slate-800 bg-slate-950/40 text-slate-400"
-      : "border-slate-800 bg-slate-950/40 text-slate-300 hover:border-slate-600 hover:bg-slate-900/60";
+  const color = teamColor(abbrev);
+  const isFinalLoser = locked && isWinner === false;
+
+  // Team color always tints the button; how strongly depends on state. A
+  // locked loser dims toward neutral, a locked winner and an active pick
+  // both read as "the strong choice" — the PICK badge still disambiguates
+  // "I chose this" from "this team won" regardless of color.
+  let bgAlpha = "26"; // ~15%, resting
+  let borderAlpha = "59"; // ~35%, resting
+  if (picked) {
+    bgAlpha = "66"; // ~40%
+    borderAlpha = "FF";
+  } else if (isFinalLoser) {
+    bgAlpha = "14"; // ~8%
+    borderAlpha = "26"; // ~15%
+  } else if (locked && isWinner) {
+    bgAlpha = "40"; // ~25%
+    borderAlpha = "B3"; // ~70%
+  }
 
   return (
-    <button type="button" onClick={onPick} disabled={locked} className={`${base} ${state}`}>
-      {/* Community share fills the button behind the label. */}
+    <button
+      type="button"
+      onClick={onPick}
+      disabled={locked}
+      className={`relative flex-1 overflow-hidden rounded-xl border px-3 py-2.5 text-left transition-[filter] ${
+        locked ? "" : "hover:brightness-125"
+      }`}
+      style={{ backgroundColor: `${color}${bgAlpha}`, borderColor: `${color}${borderAlpha}` }}
+    >
+      {/* Community share fills the button behind the label — kept neutral
+          so it stays legible against every team's background tint. */}
       {sharePct != null && sharePct > 0 && (
         <span
           aria-hidden
-          className="absolute inset-y-0 left-0 bg-slate-800/40"
+          className="absolute inset-y-0 left-0 bg-slate-950/35"
           style={{ width: `${sharePct}%` }}
         />
       )}
       <span className="relative flex items-center justify-between gap-2">
         <span className="min-w-0">
-          <span className="block truncate text-sm font-medium">{name ?? abbrev}</span>
+          <span
+            className={`block truncate text-sm font-medium ${
+              isFinalLoser ? "text-slate-400" : "text-slate-100"
+            }`}
+          >
+            {name ?? abbrev}
+          </span>
           {sharePct != null && (
-            <span className="text-[10px] text-slate-500">{Math.round(sharePct)}% picked</span>
+            <span className="text-[10px] text-slate-400">{Math.round(sharePct)}% picked</span>
           )}
         </span>
         <span className="flex shrink-0 items-center gap-1.5">
           {score != null && (
             <span
               className={`text-sm font-semibold tabular-nums ${
-                isWinner ? "text-slate-100" : "text-slate-500"
+                isWinner ? "text-slate-100" : "text-slate-400"
               }`}
             >
               {score}
@@ -86,6 +114,7 @@ function GameRow({
   const total = game.split.total;
   const awayPct = total > 0 ? (game.split.away / total) * 100 : null;
   const homePct = total > 0 ? (game.split.home / total) * 100 : null;
+  const spread = spreadLabel(game);
 
   const resultBadge =
     game.your_result === "win"
@@ -102,13 +131,20 @@ function GameRow({
         pending ? "opacity-60" : ""
       }`}
     >
-      <div className="mb-2 flex items-center justify-between gap-2 text-[11px] text-slate-500">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-[11px] text-slate-500">
         <span>
           {game.weekday?.slice(0, 3)} {formatGameDay(game.gameday)} ·{" "}
           {formatKickoffTime(game.gametime)}
           {game.div_game ? " · DIV" : ""}
         </span>
         <span className="flex items-center gap-2">
+          {!game.final && (spread || game.total_line != null) && (
+            <span className="tabular-nums text-slate-600">
+              {spread}
+              {spread && game.total_line != null ? " · " : ""}
+              {game.total_line != null ? `O/U ${game.total_line}` : ""}
+            </span>
+          )}
           {resultBadge && (
             <span className={`rounded-full border px-1.5 py-0.5 font-semibold ${resultBadge.cls}`}>
               {resultBadge.label}

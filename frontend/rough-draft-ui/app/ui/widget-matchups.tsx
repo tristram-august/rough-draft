@@ -1,13 +1,4 @@
-import { formatGameDay, formatKickoffTime, type UpcomingSchedule } from "../lib/dashboard";
-
-function spreadLabel(game: { spread_line: number | null; home_team: string; away_team: string }) {
-  if (game.spread_line == null) return null;
-  // nflverse spread_line is from the home team's perspective.
-  const favored = game.spread_line > 0 ? game.home_team : game.away_team;
-  const magnitude = Math.abs(game.spread_line);
-  if (magnitude === 0) return "PK";
-  return `${favored} -${magnitude}`;
-}
+import { formatGameDay, formatKickoffTime, spreadLabel, type UpcomingSchedule } from "../lib/dashboard";
 
 export function MatchupsWidget({ schedule }: { schedule: UpcomingSchedule }) {
   if (schedule.games.length === 0) return null;

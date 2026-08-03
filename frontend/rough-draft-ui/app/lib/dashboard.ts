@@ -81,6 +81,20 @@ export function formatGameDay(gameday: string | null): string {
   });
 }
 
+/** "SEA -3.5" from a home-perspective spread_line, or "PK" for a pick'em. */
+export function spreadLabel(game: {
+  spread_line: number | null;
+  home_team: string;
+  away_team: string;
+}): string | null {
+  if (game.spread_line == null) return null;
+  // nflverse spread_line is from the home team's perspective.
+  const favored = game.spread_line > 0 ? game.home_team : game.away_team;
+  const magnitude = Math.abs(game.spread_line);
+  if (magnitude === 0) return "PK";
+  return `${favored} -${magnitude}`;
+}
+
 /** Relative age for news items — "3h ago", "2d ago". */
 export function timeAgo(iso: string | null): string {
   if (!iso) return "";
