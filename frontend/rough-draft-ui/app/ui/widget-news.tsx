@@ -5,6 +5,21 @@ import { timeAgo, type NewsFeed } from "../lib/dashboard";
 
 const PAGE_SIZE = 6;
 
+/**
+ * Renders nothing until mounted, then fills in the relative time. timeAgo()
+ * depends on Date.now(), so computing it once during SSR and again at
+ * hydration can disagree by enough to cross a minute boundary ("5m ago" vs
+ * "6m ago") — a hydration mismatch, since the server's HTML and the client's
+ * first render need to match exactly. Deferring to a client-only effect
+ * means both are empty on that first render; the real value fills in a
+ * moment after mount instead.
+ */
+function RelativeTime({ iso }: { iso: string | null }) {
+  const [text, setText] = React.useState("");
+  React.useEffect(() => setText(timeAgo(iso)), [iso]);
+  return <>{text}</>;
+}
+
 export function NewsWidget({ feed }: { feed: NewsFeed }) {
   const [visible, setVisible] = React.useState(PAGE_SIZE);
 
@@ -37,14 +52,14 @@ export function NewsWidget({ feed }: { feed: NewsFeed }) {
                   {item.headline}
                 </span>
                 <span className="mt-0.5 block text-[11px] text-slate-600">
-                  {timeAgo(item.published)}
+                  <RelativeTime iso={item.published} />
                 </span>
               </a>
             ) : (
               <>
                 <span className="text-sm leading-snug text-slate-300">{item.headline}</span>
                 <span className="mt-0.5 block text-[11px] text-slate-600">
-                  {timeAgo(item.published)}
+                  <RelativeTime iso={item.published} />
                 </span>
               </>
             )}
