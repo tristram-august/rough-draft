@@ -76,7 +76,11 @@ const components: Components = {
   img: ({ src, alt }) =>
     typeof src === "string" ? (
       // eslint-disable-next-line @next/next/no-img-element
-      <img src={src} alt={alt ?? ""} className="my-6 w-full rounded-2xl border border-slate-800" />
+      <img
+        src={src}
+        alt={alt ?? ""}
+        className="mx-auto my-6 max-w-full rounded-2xl border border-slate-800"
+      />
     ) : null,
 };
 
