@@ -523,6 +523,47 @@ class Game(Base):
     )
 
 
+class MatchupStat(Base):
+    """
+    One row of a team-comparison stat sheet for a game, scraped from a
+    third-party site (see scripts/ingest_matchup_stats.py). `team` is whichever
+    side "owns" the primary stat_label — `opp_team`'s number is that same stat
+    family for the other side (often their allowed/defensive version, e.g.
+    "Opp Points/Game"), not a duplicate. Each category+team pairing produces
+    one row per stat, so a full 6-category matchup is ~2 rows per stat (one
+    per team's CSV) x ~5-8 stats x 6 categories.
+
+    team_rank/opp_rank are what "who has the edge" is judged on — lower rank
+    always means better-in-the-league for that specific stat regardless of
+    whether it's an offensive or defensive metric, since the source data
+    already normalizes direction into the rank. Raw values stay as scraped
+    strings (%, +/-, decimals all vary) since they're display-only.
+    """
+    __tablename__ = "matchup_stat"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    game_id: Mapped[str] = mapped_column(ForeignKey("game.game_id"), index=True)
+
+    category: Mapped[str] = mapped_column(String(16), index=True)  # Overall/Passing/Rushing/Kicking/Penalties/Turnovers
+    stat_label: Mapped[str] = mapped_column(String(64))
+
+    team: Mapped[str] = mapped_column(String(8))
+    team_value: Mapped[str] = mapped_column(String(24))
+    team_rank: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    opp_team: Mapped[str] = mapped_column(String(8))
+    opp_stat_label: Mapped[str] = mapped_column(String(64))
+    opp_value: Mapped[str] = mapped_column(String(24))
+    opp_rank: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    source_season: Mapped[int] = mapped_column(Integer)  # season the stat DATA is from, e.g. 2025
+
+    __table_args__ = (
+        UniqueConstraint("game_id", "category", "stat_label", "team", name="uq_matchup_stat_row"),
+        Index("ix_matchup_stat_game", "game_id"),
+    )
+
+
 class Post(Base):
     """A blog post, authored in markdown by a mod."""
     __tablename__ = "post"

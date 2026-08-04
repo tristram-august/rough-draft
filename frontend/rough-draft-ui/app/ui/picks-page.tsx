@@ -7,6 +7,7 @@ import { Segmented } from "./segmented";
 import { useAuth } from "../contexts/auth-context";
 import { formatGameDay, formatKickoffTime, spreadLabel } from "../lib/dashboard";
 import { teamColor } from "../lib/team-colors";
+import { MatchupStatsButton } from "./matchup-stats-button";
 import {
   fetchPickLeaderboard,
   fetchSlate,
@@ -178,6 +179,16 @@ function GameRow({
           isWinner={game.winner ? game.winner === game.home_team : null}
           sharePct={homePct}
           onPick={() => onPick(game.home_team)}
+        />
+      </div>
+
+      <div className="mt-2 flex justify-center">
+        <MatchupStatsButton
+          gameId={game.game_id}
+          awayTeam={game.away_team}
+          homeTeam={game.home_team}
+          awayName={game.away_name}
+          homeName={game.home_name}
         />
       </div>
     </div>

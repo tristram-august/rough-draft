@@ -536,6 +536,33 @@ class PowerScopeOut(BaseModel):
     ballot_count: int = 0
 
 
+# ── Matchup stats ─────────────────────────────────────────────────────────────
+
+class MatchupStatRowOut(BaseModel):
+    stat_label: str
+    team: str
+    team_value: str
+    team_rank: int | None = None
+    opp_team: str
+    opp_stat_label: str
+    opp_value: str
+    opp_rank: int | None = None
+    # True when team_rank is the better (lower) of the two — None if either
+    # side is unranked, so the client doesn't have to re-derive the tie rule.
+    team_favored: bool | None = None
+
+
+class MatchupStatCategoryOut(BaseModel):
+    category: str
+    rows: list[MatchupStatRowOut]
+
+
+class MatchupStatsOut(BaseModel):
+    game_id: str
+    source_season: int | None = None
+    categories: list[MatchupStatCategoryOut]
+
+
 # ── News ──────────────────────────────────────────────────────────────────────
 
 class NewsItemOut(BaseModel):
