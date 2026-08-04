@@ -564,6 +564,20 @@ class MatchupStat(Base):
     )
 
 
+class NewsCache(Base):
+    """
+    Last-good payload from the unofficial ESPN news feed (see app/api_news.py).
+    Single row (id=1), overwritten on every successful upstream fetch, so a
+    fresh container that boots straight into an ESPN block still has
+    yesterday's headlines to serve instead of an empty widget.
+    """
+    __tablename__ = "news_cache"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    items_json: Mapped[str] = mapped_column(Text)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 class Post(Base):
     """A blog post, authored in markdown by a mod."""
     __tablename__ = "post"

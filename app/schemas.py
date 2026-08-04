@@ -571,11 +571,12 @@ class NewsItemOut(BaseModel):
     published: datetime | None = None
     url: str | None = None
     image: str | None = None
+    source: str | None = None
 
 
 class NewsFeedOut(BaseModel):
     items: list[NewsItemOut]
     fetched_at: datetime
     stale: bool = False   # served from cache after an upstream failure
-    source: str = "ESPN"
+    source: str = "ESPN, PFT"
 

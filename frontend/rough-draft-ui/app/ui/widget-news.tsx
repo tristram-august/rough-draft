@@ -51,14 +51,26 @@ export function NewsWidget({ feed }: { feed: NewsFeed }) {
                 <span className="text-sm leading-snug text-slate-300 transition-colors group-hover:text-sky-300">
                   {item.headline}
                 </span>
-                <span className="mt-0.5 block text-[11px] text-slate-600">
+                <span className="mt-0.5 flex items-center gap-1 text-[11px] text-slate-600">
+                  {item.source && (
+                    <>
+                      <span className="text-slate-500">{item.source}</span>
+                      <span>·</span>
+                    </>
+                  )}
                   <RelativeTime iso={item.published} />
                 </span>
               </a>
             ) : (
               <>
                 <span className="text-sm leading-snug text-slate-300">{item.headline}</span>
-                <span className="mt-0.5 block text-[11px] text-slate-600">
+                <span className="mt-0.5 flex items-center gap-1 text-[11px] text-slate-600">
+                  {item.source && (
+                    <>
+                      <span className="text-slate-500">{item.source}</span>
+                      <span>·</span>
+                    </>
+                  )}
                   <RelativeTime iso={item.published} />
                 </span>
               </>

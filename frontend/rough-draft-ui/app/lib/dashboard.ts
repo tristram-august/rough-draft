@@ -38,6 +38,7 @@ export type NewsItem = {
   published: string | null;
   url: string | null;
   image: string | null;
+  source: string | null;
 };
 
 export type NewsFeed = {
