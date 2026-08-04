@@ -153,33 +153,44 @@ export function MatchupStatsButton({
   const categories = data?.categories ?? [];
   const active = categories[tab] ?? categories[0];
 
-  const overlay =
-    open && mounted
+  const drawer =
+    mounted
       ? createPortal(
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label="Matchup comparison"
-            className="fixed inset-0 z-[120] flex flex-col bg-slate-950/95 backdrop-blur-sm"
-          >
-            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-800 px-4 py-2.5">
-              <span className="truncate text-sm font-semibold text-slate-200">
-                {awayName ?? awayTeam} @ {homeName ?? homeTeam}
-                {data?.source_season && (
-                  <span className="ml-2 text-xs font-normal text-slate-500">{data.source_season} season</span>
-                )}
-              </span>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-1 text-xs font-medium text-slate-100 transition-colors hover:bg-slate-700"
-              >
-                Close
-              </button>
-            </div>
+          <>
+            <div
+              className={`fixed inset-0 z-[110] bg-black/50 transition-opacity ${
+                open ? "opacity-100" : "pointer-events-none opacity-0"
+              }`}
+              onClick={() => setOpen(false)}
+            />
+            <aside
+              role="dialog"
+              aria-modal="true"
+              aria-label="Matchup comparison"
+              className={`fixed top-0 right-0 z-[120] flex h-full w-full flex-col border-l border-slate-800 bg-slate-950 text-slate-100 shadow-2xl transition-transform sm:max-w-md ${
+                open ? "translate-x-0" : "translate-x-full"
+              }`}
+            >
+              <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-800 px-4 py-3">
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs text-slate-500">Matchup</div>
+                  <div className="truncate text-sm font-semibold leading-tight text-slate-100">
+                    {awayName ?? awayTeam} @ {homeName ?? homeTeam}
+                    {data?.source_season && (
+                      <span className="ml-2 text-xs font-normal text-slate-500">{data.source_season} season</span>
+                    )}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  className="shrink-0 rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:bg-slate-800"
+                >
+                  ← Close
+                </button>
+              </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              <div className="mx-auto max-w-lg px-4 py-4">
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
                 {isLoading && <p className="py-10 text-center text-sm text-slate-500">Loading…</p>}
                 {isError && (
                   <p className="py-10 text-center text-sm text-red-300">Couldn&apos;t load matchup stats.</p>
@@ -196,7 +207,7 @@ export function MatchupStatsButton({
                       Each pair of rows is one stat, once from each team&apos;s side — the label next
                       to every number is the exact stat it measures. Bold marks the better rank.
                     </p>
-                    <div className="mb-4 flex justify-center">
+                    <div className="mb-4 flex flex-wrap justify-center gap-y-2">
                       <Segmented
                         ariaLabel="Stat category"
                         value={String(tab)}
@@ -208,8 +219,21 @@ export function MatchupStatsButton({
                   </>
                 )}
               </div>
-            </div>
-          </div>,
+
+              {categories.length > 0 && (
+                <div className="shrink-0 border-t border-slate-800 px-4 py-2 text-center">
+                  <a
+                    href="https://www.teamrankings.com/nfl/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[11px] text-slate-600 hover:text-slate-400"
+                  >
+                    Stats via TeamRankings.com
+                  </a>
+                </div>
+              )}
+            </aside>
+          </>,
           document.body
         )
       : null;
@@ -223,7 +247,7 @@ export function MatchupStatsButton({
       >
         Matchup
       </button>
-      {overlay}
+      {drawer}
     </>
   );
 }
