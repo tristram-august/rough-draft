@@ -26,45 +26,72 @@ function groupByStat(rows: MatchupStatRow[]): { label: string; lines: MatchupSta
   return order.map((label) => ({ label, lines: byLabel.get(label)! }));
 }
 
-function StatLine({ row }: { row: MatchupStatRow }) {
-  const teamHighlight = row.team_favored === true;
-  const oppHighlight = row.team_favored === false;
-
+function TeamTag({ abbrev }: { abbrev: string }) {
   return (
-    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 py-1 text-sm">
-      <span
-        className={`justify-self-end text-right tabular-nums ${
-          teamHighlight ? "font-semibold text-slate-100" : "text-slate-400"
-        }`}
-      >
-        <span
-          className="mr-1.5 rounded px-1 py-0.5 text-[10px] font-semibold"
-          style={{ backgroundColor: `${teamColor(row.team)}33`, color: teamColor(row.team) }}
-        >
-          {row.team}
-        </span>
-        {row.team_value}
-        {row.team_rank != null && <span className="ml-1 text-[11px] text-slate-600">#{row.team_rank}</span>}
-      </span>
+    <span
+      className="shrink-0 rounded px-1 py-0.5 text-[10px] font-semibold"
+      style={{ backgroundColor: `${teamColor(abbrev)}33`, color: teamColor(abbrev) }}
+    >
+      {abbrev}
+    </span>
+  );
+}
 
-      <span aria-hidden className="text-slate-700">
-        ·
+/**
+ * One team + one label + one value. The label is always the source site's own
+ * text for that specific number (e.g. "Points/Game" or "Opp Penalties/Game"),
+ * never an invented "scored/allowed" gloss — those don't hold up consistently
+ * across categories. Penalties is the proof: a team's own Penalties/Game and
+ * its "Opp Penalties/Game" value when it's the comparison side are genuinely
+ * different numbers, not the same stat relabeled, so guessing a direction
+ * label per category risks being flatly wrong.
+ */
+function StatValueRow({
+  abbrev,
+  label,
+  value,
+  rank,
+  favored,
+}: {
+  abbrev: string;
+  label: string;
+  value: string;
+  rank: number | null;
+  favored: boolean;
+}) {
+  return (
+    <div className="flex items-baseline gap-2 py-0.5">
+      <TeamTag abbrev={abbrev} />
+      <span className={`min-w-0 flex-1 truncate text-xs ${favored ? "text-slate-300" : "text-slate-500"}`}>
+        {label}
       </span>
-
       <span
-        className={`justify-self-start tabular-nums ${
-          oppHighlight ? "font-semibold text-slate-100" : "text-slate-400"
-        }`}
+        className={`shrink-0 tabular-nums text-sm ${favored ? "font-semibold text-slate-100" : "text-slate-400"}`}
       >
-        {row.opp_value}
-        {row.opp_rank != null && <span className="ml-1 text-[11px] text-slate-600">#{row.opp_rank}</span>}
-        <span
-          className="ml-1.5 rounded px-1 py-0.5 text-[10px] font-semibold"
-          style={{ backgroundColor: `${teamColor(row.opp_team)}33`, color: teamColor(row.opp_team) }}
-        >
-          {row.opp_team}
-        </span>
+        {value}
+        {rank != null && <span className="ml-1 text-[11px] text-slate-600">#{rank}</span>}
       </span>
+    </div>
+  );
+}
+
+function StatPair({ row }: { row: MatchupStatRow }) {
+  return (
+    <div className="py-1.5">
+      <StatValueRow
+        abbrev={row.team}
+        label={row.stat_label}
+        value={row.team_value}
+        rank={row.team_rank}
+        favored={row.team_favored === true}
+      />
+      <StatValueRow
+        abbrev={row.opp_team}
+        label={row.opp_stat_label}
+        value={row.opp_value}
+        rank={row.opp_rank}
+        favored={row.team_favored === false}
+      />
     </div>
   );
 }
@@ -74,12 +101,9 @@ function CategoryPanel({ rows }: { rows: MatchupStatRow[] }) {
   return (
     <div className="divide-y divide-slate-800/60">
       {groups.map((g) => (
-        <div key={g.label} className="py-2">
-          <div className="mb-0.5 text-center text-[11px] font-medium uppercase tracking-wide text-slate-500">
-            {g.label}
-          </div>
+        <div key={g.label}>
           {g.lines.map((row) => (
-            <StatLine key={`${row.team}-${row.stat_label}`} row={row} />
+            <StatPair key={`${row.team}-${row.stat_label}`} row={row} />
           ))}
         </div>
       ))}
@@ -168,6 +192,10 @@ export function MatchupStatsButton({
 
                 {categories.length > 0 && (
                   <>
+                    <p className="mb-3 text-center text-xs leading-relaxed text-slate-500">
+                      Each pair of rows is one stat, once from each team&apos;s side — the label next
+                      to every number is the exact stat it measures. Bold marks the better rank.
+                    </p>
                     <div className="mb-4 flex justify-center">
                       <Segmented
                         ariaLabel="Stat category"
