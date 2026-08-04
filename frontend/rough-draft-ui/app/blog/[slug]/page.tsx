@@ -83,7 +83,7 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
         <img
           src={post.cover_image_url}
           alt=""
-          className="mt-8 w-full rounded-3xl border border-slate-800"
+          className="mx-auto mt-8 max-w-full rounded-3xl border border-slate-800"
         />
       )}
 

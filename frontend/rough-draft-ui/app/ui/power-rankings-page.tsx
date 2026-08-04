@@ -268,7 +268,7 @@ export default function PowerRankingsPage() {
         subtitle={
           editing
             ? "Type a rank to jump straight there, or drag and use the arrows for small moves."
-            : "The site's ranking, with community consensus alongside it."
+            : "My Rankings. If you have a problem with it, make your own."
         }
       >
         <Segmented
