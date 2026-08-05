@@ -1,0 +1,1046 @@
+<title>The 2024 WR Class, Two Years In</title>
+<style>
+  .viz-root {
+    color-scheme: light;
+    --surface-1:      #fcfcfb;
+    --surface-2:      #f9f9f7;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --muted:          #898781;
+    --grid:           #e1e0d9;
+    --baseline:       #c3c2b7;
+    --border:         rgba(11,11,11,0.10);
+    --good:           #006300;
+    --r1: #00265d; --r2: #083c74; --r3: #22528c; --r4: #3869a5;
+    --r5: #4f80be; --r6: #6698d8; --r7: #7eb1f3;
+    --pos: #2a78d6; --neg: #e34948; --zero: #c3c2b7;
+    --mark-stroke: rgba(11,11,11,0.35);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: var(--text-primary);
+    background: var(--surface-2);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) .viz-root {
+      color-scheme: dark;
+      --surface-1:      #1a1a19;
+      --surface-2:      #0d0d0d;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --muted:          #898781;
+      --grid:           #2c2c2a;
+      --baseline:       #383835;
+      --border:         rgba(255,255,255,0.10);
+      --good:           #0ca30c;
+      --r1: #23538e; --r2: #3969a6; --r3: #4f80be; --r4: #6598d8;
+      --r5: #7db0f1; --r6: #94c9ff; --r7: #ace2ff;
+      --pos: #3987e5; --neg: #e66767; --zero: #383835;
+      --mark-stroke: rgba(255,255,255,0.35);
+    }
+  }
+  :root[data-theme="dark"] .viz-root {
+    color-scheme: dark;
+    --surface-1:      #1a1a19;
+    --surface-2:      #0d0d0d;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --muted:          #898781;
+    --grid:           #2c2c2a;
+    --baseline:       #383835;
+    --border:         rgba(255,255,255,0.10);
+    --good:           #0ca30c;
+    --r1: #23538e; --r2: #3969a6; --r3: #4f80be; --r4: #6598d8;
+    --r5: #7db0f1; --r6: #94c9ff; --r7: #ace2ff;
+    --pos: #3987e5; --neg: #e66767; --zero: #383835;
+    --mark-stroke: rgba(255,255,255,0.35);
+  }
+
+  * { box-sizing: border-box; }
+  .viz-root { max-width: 980px; margin: 0 auto; padding: 28px 20px 64px; }
+  h1 { font-size: 1.65rem; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .subtitle { color: var(--text-secondary); font-size: 0.98rem; margin: 0 0 4px; max-width: 66ch; }
+  .meta { color: var(--muted); font-size: 0.82rem; margin: 0 0 28px; }
+
+  .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 36px; }
+  .tile { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 14px 14px 12px; }
+  .tile .num { font-size: 1.5rem; font-weight: 600; line-height: 1.1; }
+  .tile .lbl { font-size: 0.78rem; color: var(--text-secondary); margin-top: 4px; line-height: 1.35; }
+
+  section { margin-bottom: 40px; }
+  .sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 2px; flex-wrap: wrap; }
+  h2 { font-size: 1.05rem; margin: 0; }
+  .sec-note { color: var(--text-secondary); font-size: 0.85rem; margin: 4px 0 14px; max-width: 68ch; }
+
+  .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px 12px; }
+
+  svg { display: block; overflow: visible; font-family: inherit; }
+  .axis-label { fill: var(--muted); font-size: 10.5px; }
+  .grid-line { stroke: var(--grid); stroke-width: 1; }
+  .baseline-line { stroke: var(--baseline); stroke-width: 1.2; }
+  .direct-label { fill: var(--text-primary); font-size: 10.5px; font-weight: 600; }
+  .direct-label-sub { fill: var(--text-secondary); font-size: 9.5px; }
+  .mark-pt { stroke: var(--mark-stroke); stroke-width: 1; cursor: pointer; }
+  .bar { cursor: pointer; }
+  .bar-label { fill: var(--text-primary); font-size: 10.5px; }
+  .bar-value { fill: var(--text-secondary); font-size: 10.5px; font-variant-numeric: tabular-nums; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; font-size: 0.78rem; color: var(--text-secondary); }
+  .legend-item { display: flex; align-items: center; gap: 5px; }
+  .swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; border: 1px solid var(--mark-stroke); }
+
+  .tooltip {
+    position: fixed; pointer-events: none; z-index: 50;
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 10px; font-size: 0.78rem; color: var(--text-primary);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.18); max-width: 220px; opacity: 0; transition: opacity 0.08s;
+  }
+  .tooltip .tt-name { font-weight: 600; margin-bottom: 2px; }
+  .tooltip .tt-row { color: var(--text-secondary); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 600; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.02em; position: sticky; top: 0; background: var(--surface-1); }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .table-wrap { max-height: 520px; overflow: auto; border: 1px solid var(--border); border-radius: 10px; }
+  .table-wrap table { background: var(--surface-1); }
+  tr:hover td { background: var(--surface-2); }
+  .delta-pos { color: var(--good); font-weight: 600; }
+  .delta-neg { color: var(--neg); font-weight: 600; }
+  .delta-zero { color: var(--muted); }
+
+  .notes { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6; }
+  .notes ul { margin: 8px 0; padding-left: 20px; }
+  .notes li { margin-bottom: 6px; }
+  .notes strong { color: var(--text-primary); }
+
+  @media (max-width: 640px) {
+    .tiles { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+
+<div class="viz-root">
+
+  <h1>The 2024 WR Class, Two Seasons In</h1>
+  <p class="subtitle">Seven receivers went in round one — tied for the most since 2000. Two years of tape later, draft order and produced value have almost nothing to do with each other.</p>
+  <p class="meta">Source: Rough Draft DB — draft_pick + player_game_stat (nflverse), 2024–2025 regular season only (season_type = REG), as of 2026-08-05.</p>
+
+  <div class="tiles" id="tiles"></div>
+
+  <section>
+    <div class="sec-head"><h2>Draft slot vs. two-year value</h2></div>
+    <p class="sec-note">Each dot is a receiver: pick number on the x-axis, combined 2024–25 receiving EPA on the y-axis. If draft order predicted outcomes, this would trend cleanly downhill left-to-right. It doesn't.</p>
+    <div class="card">
+      <svg id="scatter" width="900" height="440" viewBox="0 0 900 440"></svg>
+      <div class="legend" id="scatter-legend"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>Top 12 by receiving yards</h2></div>
+    <p class="sec-note">Combined 2024–25 regular-season yards. Bar color = draft round — notice how little the shading has to do with bar length.</p>
+    <div class="card">
+      <svg id="leaderboard" width="900" height="420" viewBox="0 0 900 420"></svg>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>Biggest risers &amp; fallers</h2></div>
+    <p class="sec-note">Rank each player by where he was actually drafted (1 = taken first) and by where he ranks in class production (1 = best EPA). The gap between those two ranks is the story — positive means he outproduced his slot, negative means the opposite. Zero-snap picks (Palmer, Rice, C. Johnson) are excluded; they never recorded a target.</p>
+    <div class="card">
+      <svg id="diverging" width="900" height="700" viewBox="0 0 900 700"></svg>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>Full class reference</h2></div>
+    <p class="sec-note">All 35 receivers drafted in 2024, sorted by draft position. Games/EPA/yards are combined across 2024–25 regular seasons.</p>
+    <div class="card" style="padding:0;">
+      <div class="table-wrap">
+        <table id="full-table">
+          <thead>
+            <tr>
+              <th>Pick</th><th>Rd</th><th>Player</th><th>College</th>
+              <th class="num">GP</th><th class="num">Tgt</th><th class="num">Rec</th>
+              <th class="num">Yds</th><th class="num">TD</th><th class="num">EPA</th>
+              <th class="num">Prod Rk</th><th class="num">Δ vs slot</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>Reading notes</h2></div>
+    <div class="card notes">
+      <ul>
+        <li><strong>Malik Nabers</strong> tore his ACL four games into 2025 — his per-game rate that season was still elite, but the combined totals here reflect roughly 1.25 healthy seasons, not two.</li>
+        <li><strong>Roman Wilson</strong> missed all of his 2024 rookie year (0 games) and only debuted in 2025 — his numbers are essentially a single partial season.</li>
+        <li><strong>Combined EPA</strong> is total receiving expected-points-added across every regular-season game played in 2024–25 — it rewards value added per target, not just volume, which is why low-target players like Devaughn Vele and high-target players like Xavier Legette can end up on opposite sides of the ranking despite similar pedigree.</li>
+        <li>Production rank and slot delta are computed only among receivers who recorded at least one regular-season target (32 of 35). <strong>Tejhaun Palmer, Brenden Rice, and Cornelius Johnson</strong> never saw the field and are shown in the reference table but not ranked.</li>
+        <li>Postseason stats are not included. All figures are regular season only.</li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script type="application/json" id="wr-data">
+[
+ {
+  "name": "Marvin Harrison Jr.",
+  "round": 1,
+  "overall": 4,
+  "college": "Ohio St.",
+  "targets": 189,
+  "rec": 103,
+  "yds": 1493,
+  "tds": 12,
+  "epa": 58.4,
+  "games": 29,
+  "yds24": 885,
+  "yds25": 608,
+  "g24": 17,
+  "g25": 12,
+  "draft_rank": 1,
+  "prod_rank": 3,
+  "delta": -2
+ },
+ {
+  "name": "Malik Nabers",
+  "round": 1,
+  "overall": 6,
+  "college": "LSU",
+  "targets": 205,
+  "rec": 127,
+  "yds": 1475,
+  "tds": 9,
+  "epa": 48.0,
+  "games": 19,
+  "yds24": 1204,
+  "yds25": 271,
+  "g24": 15,
+  "g25": 4,
+  "draft_rank": 2,
+  "prod_rank": 5,
+  "delta": -3
+ },
+ {
+  "name": "Rome Odunze",
+  "round": 1,
+  "overall": 9,
+  "college": "Washington",
+  "targets": 191,
+  "rec": 98,
+  "yds": 1395,
+  "tds": 9,
+  "epa": 37.0,
+  "games": 29,
+  "yds24": 734,
+  "yds25": 661,
+  "g24": 17,
+  "g25": 12,
+  "draft_rank": 3,
+  "prod_rank": 7,
+  "delta": -4
+ },
+ {
+  "name": "Brian Thomas",
+  "round": 1,
+  "overall": 23,
+  "college": "LSU",
+  "targets": 224,
+  "rec": 135,
+  "yds": 1989,
+  "tds": 12,
+  "epa": 71.4,
+  "games": 31,
+  "yds24": 1282,
+  "yds25": 707,
+  "g24": 17,
+  "g25": 14,
+  "draft_rank": 4,
+  "prod_rank": 2,
+  "delta": 2
+ },
+ {
+  "name": "Xavier Worthy",
+  "round": 1,
+  "overall": 28,
+  "college": "Texas",
+  "targets": 171,
+  "rec": 101,
+  "yds": 1170,
+  "tds": 7,
+  "epa": 34.2,
+  "games": 30,
+  "yds24": 638,
+  "yds25": 532,
+  "g24": 16,
+  "g25": 14,
+  "draft_rank": 5,
+  "prod_rank": 8,
+  "delta": -3
+ },
+ {
+  "name": "Ricky Pearsall",
+  "round": 1,
+  "overall": 31,
+  "college": "Florida",
+  "targets": 99,
+  "rec": 67,
+  "yds": 928,
+  "tds": 3,
+  "epa": 34.2,
+  "games": 20,
+  "yds24": 400,
+  "yds25": 528,
+  "g24": 11,
+  "g25": 9,
+  "draft_rank": 6,
+  "prod_rank": 9,
+  "delta": -3
+ },
+ {
+  "name": "Xavier Legette",
+  "round": 1,
+  "overall": 32,
+  "college": "South Carolina",
+  "targets": 148,
+  "rec": 84,
+  "yds": 860,
+  "tds": 7,
+  "epa": 0.4,
+  "games": 30,
+  "yds24": 497,
+  "yds25": 363,
+  "g24": 15,
+  "g25": 15,
+  "draft_rank": 7,
+  "prod_rank": 20,
+  "delta": -13
+ },
+ {
+  "name": "Keon Coleman",
+  "round": 2,
+  "overall": 33,
+  "college": "Florida St.",
+  "targets": 116,
+  "rec": 67,
+  "yds": 960,
+  "tds": 8,
+  "epa": 37.7,
+  "games": 25,
+  "yds24": 556,
+  "yds25": 404,
+  "g24": 13,
+  "g25": 12,
+  "draft_rank": 8,
+  "prod_rank": 6,
+  "delta": 2
+ },
+ {
+  "name": "Ladd McConkey",
+  "round": 2,
+  "overall": 34,
+  "college": "Georgia",
+  "targets": 218,
+  "rec": 148,
+  "yds": 1938,
+  "tds": 13,
+  "epa": 72.9,
+  "games": 32,
+  "yds24": 1149,
+  "yds25": 789,
+  "g24": 16,
+  "g25": 16,
+  "draft_rank": 9,
+  "prod_rank": 1,
+  "delta": 8
+ },
+ {
+  "name": "Ja'Lynn Polk",
+  "round": 2,
+  "overall": 37,
+  "college": "Washington",
+  "targets": 33,
+  "rec": 12,
+  "yds": 87,
+  "tds": 2,
+  "epa": -20.7,
+  "games": 14,
+  "yds24": 87,
+  "yds25": 0,
+  "g24": 14,
+  "g25": 0,
+  "draft_rank": 10,
+  "prod_rank": 31,
+  "delta": -21
+ },
+ {
+  "name": "Adonai Mitchell",
+  "round": 2,
+  "overall": 52,
+  "college": "Texas",
+  "targets": 129,
+  "rec": 56,
+  "yds": 765,
+  "tds": 2,
+  "epa": -21.1,
+  "games": 33,
+  "yds24": 312,
+  "yds25": 453,
+  "g24": 17,
+  "g25": 16,
+  "draft_rank": 11,
+  "prod_rank": 32,
+  "delta": -21
+ },
+ {
+  "name": "Malachi Corley",
+  "round": 3,
+  "overall": 65,
+  "college": "Western Kentucky",
+  "targets": 20,
+  "rec": 14,
+  "yds": 95,
+  "tds": 0,
+  "epa": -6.9,
+  "games": 17,
+  "yds24": 16,
+  "yds25": 79,
+  "g24": 5,
+  "g25": 12,
+  "draft_rank": 12,
+  "prod_rank": 29,
+  "delta": -17
+ },
+ {
+  "name": "Jermaine Burton",
+  "round": 3,
+  "overall": 80,
+  "college": "Alabama",
+  "targets": 14,
+  "rec": 4,
+  "yds": 107,
+  "tds": 0,
+  "epa": -4.5,
+  "games": 8,
+  "yds24": 107,
+  "yds25": 0,
+  "g24": 8,
+  "g25": 0,
+  "draft_rank": 13,
+  "prod_rank": 27,
+  "delta": -14
+ },
+ {
+  "name": "Roman Wilson",
+  "round": 3,
+  "overall": 84,
+  "college": "Michigan",
+  "targets": 21,
+  "rec": 12,
+  "yds": 166,
+  "tds": 2,
+  "epa": 4.1,
+  "games": 9,
+  "yds24": 0,
+  "yds25": 166,
+  "g24": 0,
+  "g25": 9,
+  "draft_rank": 14,
+  "prod_rank": 17,
+  "delta": -3
+ },
+ {
+  "name": "Jalen McMillan",
+  "round": 3,
+  "overall": 92,
+  "college": "Washington",
+  "targets": 73,
+  "rec": 49,
+  "yds": 639,
+  "tds": 8,
+  "epa": 22.6,
+  "games": 17,
+  "yds24": 461,
+  "yds25": 178,
+  "g24": 13,
+  "g25": 4,
+  "draft_rank": 15,
+  "prod_rank": 11,
+  "delta": 4
+ },
+ {
+  "name": "Luke McCaffrey",
+  "round": 3,
+  "overall": 100,
+  "college": "Rice",
+  "targets": 39,
+  "rec": 29,
+  "yds": 371,
+  "tds": 3,
+  "epa": 12.8,
+  "games": 22,
+  "yds24": 168,
+  "yds25": 203,
+  "g24": 13,
+  "g25": 9,
+  "draft_rank": 16,
+  "prod_rank": 14,
+  "delta": 2
+ },
+ {
+  "name": "Troy Franklin",
+  "round": 4,
+  "overall": 102,
+  "college": "Oregon",
+  "targets": 157,
+  "rec": 93,
+  "yds": 972,
+  "tds": 8,
+  "epa": -8.6,
+  "games": 33,
+  "yds24": 263,
+  "yds25": 709,
+  "g24": 16,
+  "g25": 17,
+  "draft_rank": 17,
+  "prod_rank": 30,
+  "delta": -13
+ },
+ {
+  "name": "Javon Baker",
+  "round": 4,
+  "overall": 110,
+  "college": "Central Florida",
+  "targets": 4,
+  "rec": 1,
+  "yds": 12,
+  "tds": 0,
+  "epa": -0.8,
+  "games": 6,
+  "yds24": 12,
+  "yds25": 0,
+  "g24": 6,
+  "g25": 0,
+  "draft_rank": 18,
+  "prod_rank": 23,
+  "delta": -5
+ },
+ {
+  "name": "Devontez Walker",
+  "round": 4,
+  "overall": 113,
+  "college": "North Carolina",
+  "targets": 11,
+  "rec": 7,
+  "yds": 157,
+  "tds": 4,
+  "epa": 19.2,
+  "games": 11,
+  "yds24": 21,
+  "yds25": 136,
+  "g24": 3,
+  "g25": 8,
+  "draft_rank": 19,
+  "prod_rank": 12,
+  "delta": 7
+ },
+ {
+  "name": "Jacob Cowing",
+  "round": 4,
+  "overall": 135,
+  "college": "Arizona",
+  "targets": 6,
+  "rec": 4,
+  "yds": 80,
+  "tds": 0,
+  "epa": 4.3,
+  "games": 15,
+  "yds24": 80,
+  "yds25": 0,
+  "g24": 15,
+  "g25": 0,
+  "draft_rank": 20,
+  "prod_rank": 16,
+  "delta": 4
+ },
+ {
+  "name": "Anthony Gould",
+  "round": 5,
+  "overall": 142,
+  "college": "Oregon St.",
+  "targets": 3,
+  "rec": 3,
+  "yds": 29,
+  "tds": 0,
+  "epa": 0.9,
+  "games": 19,
+  "yds24": 23,
+  "yds25": 6,
+  "g24": 8,
+  "g25": 11,
+  "draft_rank": 21,
+  "prod_rank": 19,
+  "delta": 2
+ },
+ {
+  "name": "Ainias Smith",
+  "round": 5,
+  "overall": 152,
+  "college": "Texas A&M",
+  "targets": 9,
+  "rec": 7,
+  "yds": 41,
+  "tds": 1,
+  "epa": -0.6,
+  "games": 3,
+  "yds24": 41,
+  "yds25": 0,
+  "g24": 3,
+  "g25": 0,
+  "draft_rank": 22,
+  "prod_rank": 22,
+  "delta": 0
+ },
+ {
+  "name": "Jamari Thrash",
+  "round": 5,
+  "overall": 156,
+  "college": "Louisville",
+  "targets": 22,
+  "rec": 13,
+  "yds": 129,
+  "tds": 0,
+  "epa": 0.2,
+  "games": 14,
+  "yds24": 22,
+  "yds25": 107,
+  "g24": 6,
+  "g25": 8,
+  "draft_rank": 23,
+  "prod_rank": 21,
+  "delta": 2
+ },
+ {
+  "name": "Bub Means",
+  "round": 5,
+  "overall": 170,
+  "college": "Pittsburgh",
+  "targets": 15,
+  "rec": 9,
+  "yds": 118,
+  "tds": 1,
+  "epa": 3.4,
+  "games": 4,
+  "yds24": 118,
+  "yds25": 0,
+  "g24": 4,
+  "g25": 0,
+  "draft_rank": 24,
+  "prod_rank": 18,
+  "delta": 6
+ },
+ {
+  "name": "Jha'Quan Jackson",
+  "round": 6,
+  "overall": 182,
+  "college": "Tulane",
+  "targets": 3,
+  "rec": 1,
+  "yds": 8,
+  "tds": 0,
+  "epa": -1.8,
+  "games": 12,
+  "yds24": 8,
+  "yds25": 0,
+  "g24": 12,
+  "g25": 0,
+  "draft_rank": 25,
+  "prod_rank": 25,
+  "delta": 0
+ },
+ {
+  "name": "Malik Washington",
+  "round": 6,
+  "overall": 184,
+  "college": "Virginia",
+  "targets": 101,
+  "rec": 72,
+  "yds": 540,
+  "tds": 3,
+  "epa": -2.8,
+  "games": 31,
+  "yds24": 223,
+  "yds25": 317,
+  "g24": 14,
+  "g25": 17,
+  "draft_rank": 26,
+  "prod_rank": 26,
+  "delta": 0
+ },
+ {
+  "name": "Johnny Wilson",
+  "round": 6,
+  "overall": 185,
+  "college": "Florida St.",
+  "targets": 15,
+  "rec": 5,
+  "yds": 38,
+  "tds": 1,
+  "epa": -1.2,
+  "games": 10,
+  "yds24": 38,
+  "yds25": 0,
+  "g24": 10,
+  "g25": 0,
+  "draft_rank": 27,
+  "prod_rank": 24,
+  "delta": 3
+ },
+ {
+  "name": "Casey Washington",
+  "round": 6,
+  "overall": 187,
+  "college": "Illinois",
+  "targets": 16,
+  "rec": 7,
+  "yds": 108,
+  "tds": 0,
+  "epa": 4.7,
+  "games": 7,
+  "yds24": 14,
+  "yds25": 94,
+  "g24": 2,
+  "g25": 5,
+  "draft_rank": 28,
+  "prod_rank": 15,
+  "delta": 13
+ },
+ {
+  "name": "Tejhaun Palmer",
+  "round": 6,
+  "overall": 191,
+  "college": "Ala-Birmingham",
+  "targets": 0,
+  "rec": 0,
+  "yds": 0,
+  "tds": 0,
+  "epa": 0.0,
+  "games": 0,
+  "yds24": 0,
+  "yds25": 0,
+  "g24": 0,
+  "g25": 0,
+  "draft_rank": 29,
+  "prod_rank": null,
+  "delta": null
+ },
+ {
+  "name": "Jordan Whittington",
+  "round": 6,
+  "overall": 213,
+  "college": "Texas",
+  "targets": 53,
+  "rec": 40,
+  "yds": 464,
+  "tds": 0,
+  "epa": 19.1,
+  "games": 29,
+  "yds24": 293,
+  "yds25": 171,
+  "g24": 14,
+  "g25": 15,
+  "draft_rank": 30,
+  "prod_rank": 13,
+  "delta": 17
+ },
+ {
+  "name": "Ryan Flournoy",
+  "round": 6,
+  "overall": 216,
+  "college": "SE Missouri St.",
+  "targets": 70,
+  "rec": 50,
+  "yds": 577,
+  "tds": 4,
+  "epa": 25.8,
+  "games": 24,
+  "yds24": 102,
+  "yds25": 475,
+  "g24": 9,
+  "g25": 15,
+  "draft_rank": 31,
+  "prod_rank": 10,
+  "delta": 21
+ },
+ {
+  "name": "Brenden Rice",
+  "round": 7,
+  "overall": 225,
+  "college": "USC",
+  "targets": 0,
+  "rec": 0,
+  "yds": 0,
+  "tds": 0,
+  "epa": 0.0,
+  "games": 0,
+  "yds24": 0,
+  "yds25": 0,
+  "g24": 0,
+  "g25": 0,
+  "draft_rank": 32,
+  "prod_rank": null,
+  "delta": null
+ },
+ {
+  "name": "Devaughn Vele",
+  "round": 7,
+  "overall": 235,
+  "college": "Utah",
+  "targets": 94,
+  "rec": 66,
+  "yds": 768,
+  "tds": 5,
+  "epa": 51.9,
+  "games": 22,
+  "yds24": 475,
+  "yds25": 293,
+  "g24": 13,
+  "g25": 9,
+  "draft_rank": 33,
+  "prod_rank": 4,
+  "delta": 29
+ },
+ {
+  "name": "Tahj Washington",
+  "round": 7,
+  "overall": 241,
+  "college": "USC",
+  "targets": 5,
+  "rec": 3,
+  "yds": 37,
+  "tds": 0,
+  "epa": -5.3,
+  "games": 2,
+  "yds24": 0,
+  "yds25": 37,
+  "g24": 0,
+  "g25": 2,
+  "draft_rank": 34,
+  "prod_rank": 28,
+  "delta": 6
+ },
+ {
+  "name": "Cornelius Johnson",
+  "round": 7,
+  "overall": 253,
+  "college": "Michigan",
+  "targets": 0,
+  "rec": 0,
+  "yds": 0,
+  "tds": 0,
+  "epa": 0.0,
+  "games": 0,
+  "yds24": 0,
+  "yds25": 0,
+  "g24": 0,
+  "g25": 0,
+  "draft_rank": 35,
+  "prod_rank": null,
+  "delta": null
+ }
+]
+</script>
+
+<script>
+(function () {
+  const DATA = JSON.parse(document.getElementById('wr-data').textContent);
+  const ROUND_COLOR = { 1: 'var(--r1)', 2: 'var(--r2)', 3: 'var(--r3)', 4: 'var(--r4)', 5: 'var(--r5)', 6: 'var(--r6)', 7: 'var(--r7)' };
+  const svgns = 'http://www.w3.org/2000/svg';
+
+  function el(tag, attrs, parent) {
+    const e = document.createElementNS(svgns, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function text(x, y, str, cls, parent, extra) {
+    const t = el('text', Object.assign({ x, y, class: cls }, extra || {}), parent);
+    t.textContent = str;
+    return t;
+  }
+  function fmtSigned(n) {
+    if (n === null || n === undefined) return '—';
+    return (n > 0 ? '+' : '') + n;
+  }
+
+  const tooltip = document.getElementById('tooltip');
+  function showTip(evt, html) {
+    tooltip.innerHTML = html;
+    tooltip.style.opacity = 1;
+    positionTip(evt);
+  }
+  function positionTip(evt) {
+    const pad = 14;
+    let x = evt.clientX + pad, y = evt.clientY + pad;
+    const vw = window.innerWidth, vh = window.innerHeight;
+    if (x + 230 > vw) x = evt.clientX - 230 - pad;
+    if (y + 90 > vh) y = evt.clientY - 90 - pad;
+    tooltip.style.left = x + 'px';
+    tooltip.style.top = y + 'px';
+  }
+  function hideTip() { tooltip.style.opacity = 0; }
+
+  // ---------- Stat tiles ----------
+  const tiles = [
+    { num: '35 WRs', lbl: 'drafted in 2024 — 7 in Round 1, tied with 2004 for the most since 2000' },
+    { num: 'McConkey', lbl: 'Best combined EPA in the class (72.9) through 2 seasons — from pick #34 (Round 2)' },
+    { num: 'Vele, Rd 7', lbl: 'Pick #235 ranks #4 in the class on combined EPA' },
+    { num: '3 picks', lbl: 'Palmer, Rice, C. Johnson — Day 3 picks who never played a regular-season snap' },
+  ];
+  const tilesEl = document.getElementById('tiles');
+  tiles.forEach(t => {
+    const d = document.createElement('div');
+    d.className = 'tile';
+    d.innerHTML = `<div class="num">${t.num}</div><div class="lbl">${t.lbl}</div>`;
+    tilesEl.appendChild(d);
+  });
+
+  // ================= Scatter: pick vs combined EPA =================
+  (function scatter() {
+    const svg = document.getElementById('scatter');
+    const W = 900, H = 440, M = { l: 46, r: 20, t: 16, b: 40 };
+    const plotW = W - M.l - M.r, plotH = H - M.t - M.b;
+
+    const picks = DATA.map(d => d.overall);
+    const epas = DATA.map(d => d.epa);
+    const xMin = 0, xMax = 264;
+    const yMin = Math.min(...epas) - 8, yMax = Math.max(...epas) + 8;
+
+    const xs = v => M.l + (v - xMin) / (xMax - xMin) * plotW;
+    const ys = v => M.t + plotH - (v - yMin) / (yMax - yMin) * plotH;
+
+    // gridlines (y)
+    const yTicks = [-20, 0, 20, 40, 60, 80];
+    yTicks.forEach(v => {
+      el('line', { x1: M.l, x2: W - M.r, y1: ys(v), y2: ys(v), class: v === 0 ? 'baseline-line' : 'grid-line' }, svg);
+      text(M.l - 8, ys(v) + 3, v, 'axis-label', svg, { 'text-anchor': 'end' });
+    });
+    // x ticks: round boundaries roughly at pick 32,64,96,128,160,192,224,256
+    [1, 32, 64, 96, 128, 160, 192, 224, 256].forEach(v => {
+      text(xs(v), H - M.b + 16, v === 1 ? '#1' : '#' + v, 'axis-label', svg, { 'text-anchor': 'middle' });
+    });
+    text(W / 2, H - 6, 'Overall draft pick', 'axis-label', svg, { 'text-anchor': 'middle' });
+    text(14, M.t + plotH / 2, 'Combined 2024–25 receiving EPA', 'axis-label', svg, { 'text-anchor': 'middle', transform: `rotate(-90 14 ${M.t + plotH / 2})` });
+
+    const labelNames = new Set(['Ladd McConkey', 'Brian Thomas', 'Devaughn Vele', "Ja'Lynn Polk", 'Adonai Mitchell', 'Xavier Legette', 'Marvin Harrison Jr.', 'Malachi Corley']);
+
+    DATA.forEach(d => {
+      const cx = xs(d.overall), cy = ys(d.epa);
+      const c = el('circle', { cx, cy, r: 6, fill: ROUND_COLOR[d.round], class: 'mark-pt' }, svg);
+      c.addEventListener('mousemove', e => showTip(e, tipHtml(d)));
+      c.addEventListener('mouseleave', hideTip);
+      if (labelNames.has(d.name)) {
+        const above = d.epa >= 0;
+        text(cx, cy + (above ? -11 : 18), d.name, 'direct-label', svg, { 'text-anchor': 'middle' });
+        text(cx, cy + (above ? -1 : 28), `Rd ${d.round}, #${d.overall}`, 'direct-label-sub', svg, { 'text-anchor': 'middle' });
+      }
+    });
+
+    const leg = document.getElementById('scatter-legend');
+    for (let r = 1; r <= 7; r++) {
+      const item = document.createElement('div');
+      item.className = 'legend-item';
+      item.innerHTML = `<span class="swatch" style="background:${ROUND_COLOR[r]}"></span>Round ${r}`;
+      leg.appendChild(item);
+    }
+  })();
+
+  function tipHtml(d) {
+    return `<div class="tt-name">${d.name}</div>
+      <div class="tt-row">Round ${d.round}, pick #${d.overall} · ${d.college}</div>
+      <div class="tt-row">${d.yds} yds · ${d.tds} TD · ${d.games} GP</div>
+      <div class="tt-row">Combined EPA: ${d.epa}</div>`;
+  }
+
+  // ================= Leaderboard: top 12 by yards =================
+  (function leaderboard() {
+    const svg = document.getElementById('leaderboard');
+    const W = 900, H = 420, M = { l: 190, r: 60, t: 10, b: 10 };
+    const plotW = W - M.l - M.r;
+    const top = [...DATA].sort((a, b) => b.yds - a.yds).slice(0, 12);
+    const maxYds = top[0].yds;
+    const rowH = (H - M.t - M.b) / top.length;
+    const barH = rowH * 0.62;
+
+    top.forEach((d, i) => {
+      const y = M.t + i * rowH;
+      const w = (d.yds / maxYds) * plotW;
+      text(M.l - 10, y + barH / 2 + 4, d.name, 'bar-label', svg, { 'text-anchor': 'end' });
+      const r = el('rect', { x: M.l, y, width: Math.max(w, 2), height: barH, rx: 4, fill: ROUND_COLOR[d.round], class: 'bar' }, svg);
+      r.addEventListener('mousemove', e => showTip(e, tipHtml(d)));
+      r.addEventListener('mouseleave', hideTip);
+      text(M.l + w + 8, y + barH / 2 + 4, `${d.yds.toLocaleString()} yds · Rd ${d.round}`, 'bar-value', svg);
+    });
+  })();
+
+  // ================= Diverging: draft rank vs prod rank delta =================
+  (function diverging() {
+    const svg = document.getElementById('diverging');
+    const ranked = DATA.filter(d => d.delta !== null).sort((a, b) => b.delta - a.delta);
+    const W = 900, H = ranked.length * 20 + 20, M = { l: 190, r: 190, t: 10, b: 10 };
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    svg.setAttribute('height', H);
+    const plotW = W - M.l - M.r;
+    const maxAbs = Math.max(...ranked.map(d => Math.abs(d.delta)));
+    const cx = M.l + plotW / 2;
+    const scale = (plotW / 2 - 10) / maxAbs;
+    const rowH = 20;
+
+    el('line', { x1: cx, x2: cx, y1: M.t, y2: H - M.b, class: 'baseline-line' }, svg);
+
+    ranked.forEach((d, i) => {
+      const y = M.t + i * rowH;
+      const barH = rowH * 0.6;
+      const w = Math.abs(d.delta) * scale;
+      const positive = d.delta >= 0;
+      const x = positive ? cx : cx - w;
+      const r = el('rect', { x, y, width: Math.max(w, 1), height: barH, fill: positive ? 'var(--pos)' : 'var(--neg)', class: 'bar' }, svg);
+      r.addEventListener('mousemove', e => showTip(e, tipHtml(d) + `<div class="tt-row">Slot rank #${d.draft_rank} → Production rank #${d.prod_rank}</div>`));
+      r.addEventListener('mouseleave', hideTip);
+      const labelX = positive ? cx - 8 : cx + 8;
+      text(labelX, y + barH / 2 + 3.5, `${d.name} (Rd ${d.round})`, 'bar-label', svg, { 'text-anchor': positive ? 'end' : 'start' });
+      const valX = positive ? x + w + 6 : x - 6;
+      text(valX, y + barH / 2 + 3.5, fmtSigned(d.delta), 'bar-value', svg, { 'text-anchor': positive ? 'start' : 'end' });
+    });
+  })();
+
+  // ================= Full reference table =================
+  (function table() {
+    const tbody = document.querySelector('#full-table tbody');
+    [...DATA].sort((a, b) => a.overall - b.overall).forEach(d => {
+      const tr = document.createElement('tr');
+      const deltaCls = d.delta === null ? 'delta-zero' : d.delta > 0 ? 'delta-pos' : d.delta < 0 ? 'delta-neg' : 'delta-zero';
+      tr.innerHTML = `
+        <td>#${d.overall}</td>
+        <td>${d.round}</td>
+        <td>${d.name}</td>
+        <td>${d.college}</td>
+        <td class="num">${d.games}</td>
+        <td class="num">${d.targets}</td>
+        <td class="num">${d.rec}</td>
+        <td class="num">${d.yds}</td>
+        <td class="num">${d.tds}</td>
+        <td class="num">${d.epa}</td>
+        <td class="num">${d.prod_rank ?? '—'}</td>
+        <td class="num ${deltaCls}">${fmtSigned(d.delta)}</td>`;
+      tbody.appendChild(tr);
+    });
+  })();
+})();
+</script>
