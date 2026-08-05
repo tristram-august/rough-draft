@@ -561,12 +561,16 @@ async def rankings(
     }
 
 def _scope_clause(scope: str, draft_team: str) -> Any:
+    # Regular season only, to match /pick/{year}/{overall}/class-ranks — otherwise
+    # these totals silently mix in playoff games (unequal opportunity across a
+    # draft class, since not every player's team makes it) and drift out of sync
+    # with the class-ranks leaderboard, which has always been REG-only.
     if scope == "career":
-        return True
+        return PlayerGameStat.season_type == "REG"
     if scope == "draft_team":
-        return PlayerGameStat.team == draft_team
+        return and_(PlayerGameStat.team == draft_team, PlayerGameStat.season_type == "REG")
     if scope == "other_teams":
-        return PlayerGameStat.team != draft_team
+        return and_(PlayerGameStat.team != draft_team, PlayerGameStat.season_type == "REG")
     raise ValueError(f"unknown scope: {scope}")
 
 
