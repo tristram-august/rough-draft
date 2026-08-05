@@ -10,6 +10,17 @@ export type SlateGame = Game & {
   split: PickSplit;
   winner: string | null;
   your_result: "win" | "loss" | "push" | null;
+  model_home_win_prob: number | null;
+  model_favorite: string | null;
+};
+
+export type PredictionAccuracy = {
+  season_from: number;
+  season_to: number;
+  model_correct: number;
+  model_graded: number;
+  vegas_correct: number;
+  vegas_graded: number;
 };
 
 export type Slate = {
@@ -90,5 +101,11 @@ export async function fetchPickLeaderboard(
     headers: pickHeaders(token),
   });
   if (!res.ok) throw new Error(`Failed to load standings (${res.status})`);
+  return res.json();
+}
+
+export async function fetchPredictionAccuracy(): Promise<PredictionAccuracy> {
+  const res = await fetch(`${API_BASE}/predictions/accuracy`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Failed to load model accuracy (${res.status})`);
   return res.json();
 }

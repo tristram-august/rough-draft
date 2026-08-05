@@ -447,6 +447,22 @@ class SlateGameOut(GameOut):
     winner: str | None = None      # set once final; None on a tie
     your_result: str | None = None  # "win" | "loss" | "push" once graded
 
+    # Elo model's pre-game prediction (see app/elo.py), when one exists.
+    model_home_win_prob: float | None = None
+    model_favorite: str | None = None
+
+
+class PredictionAccuracyOut(BaseModel):
+    """Backtested Elo accuracy, straight-up, over an out-of-sample range —
+    see scripts/build_elo_ratings.py for how the range and model constants
+    were chosen (not fit to the numbers reported here)."""
+    season_from: int
+    season_to: int
+    model_correct: int
+    model_graded: int
+    vegas_correct: int
+    vegas_graded: int
+
 
 class SlateOut(BaseModel):
     season: int | None = None

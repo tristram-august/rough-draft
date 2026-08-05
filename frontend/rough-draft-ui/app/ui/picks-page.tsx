@@ -10,6 +10,7 @@ import { teamColor } from "../lib/team-colors";
 import { MatchupStatsButton } from "./matchup-stats-button";
 import {
   fetchPickLeaderboard,
+  fetchPredictionAccuracy,
   fetchSlate,
   submitPick,
   type SlateGame,
@@ -117,6 +118,15 @@ function GameRow({
   const homePct = total > 0 ? (game.split.home / total) * 100 : null;
   const spread = spreadLabel(game);
 
+  const modelPct =
+    game.model_favorite && game.model_home_win_prob != null
+      ? Math.round(
+          (game.model_favorite === game.home_team
+            ? game.model_home_win_prob
+            : 1 - game.model_home_win_prob) * 100
+        )
+      : null;
+
   const resultBadge =
     game.your_result === "win"
       ? { label: "WON", cls: "border-emerald-800/60 bg-emerald-950/30 text-emerald-400" }
@@ -144,6 +154,11 @@ function GameRow({
               {spread}
               {spread && game.total_line != null ? " · " : ""}
               {game.total_line != null ? `O/U ${game.total_line}` : ""}
+            </span>
+          )}
+          {modelPct != null && (
+            <span className="tabular-nums text-slate-600" title="Elo model's win probability">
+              Model {game.model_favorite} {modelPct}%
             </span>
           )}
           {resultBadge && (
@@ -273,6 +288,49 @@ function StandingsPanel({
   );
 }
 
+function AccuracyBar({ label, pct }: { label: string; pct: number }) {
+  return (
+    <div>
+      <div className="mb-1 flex items-baseline justify-between text-xs">
+        <span className="text-slate-400">{label}</span>
+        <span className="tabular-nums text-slate-300">{pct.toFixed(1)}%</span>
+      </div>
+      <div className="h-1.5 overflow-hidden rounded-full border border-slate-800 bg-slate-950/50">
+        <div className="h-full bg-slate-200/70" style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function ModelAccuracyPanel() {
+  const { data } = useQuery({
+    queryKey: ["prediction-accuracy"],
+    queryFn: fetchPredictionAccuracy,
+  });
+
+  if (!data || data.model_graded === 0) return null;
+
+  const modelPct = (data.model_correct / data.model_graded) * 100;
+  const vegasPct = data.vegas_graded > 0 ? (data.vegas_correct / data.vegas_graded) * 100 : null;
+
+  return (
+    <section className="rounded-3xl border border-slate-800 bg-slate-900/30 p-5">
+      <h2 className="mb-1 text-sm font-semibold uppercase tracking-[0.14em] text-slate-400">
+        Elo model
+      </h2>
+      <p className="mb-3 text-[11px] leading-relaxed text-slate-600">
+        Straight-up picks, {data.season_from}–{data.season_to}. Out-of-sample: this range never
+        influenced the model&apos;s constants, so it&apos;s a genuine backtest, not a number fit to
+        itself.
+      </p>
+      <div className="space-y-3">
+        <AccuracyBar label="Model" pct={modelPct} />
+        {vegasPct != null && <AccuracyBar label="Vegas favorite" pct={vegasPct} />}
+      </div>
+    </section>
+  );
+}
+
 export default function PicksPage() {
   const { user, token } = useAuth();
   const queryClient = useQueryClient();
@@ -349,10 +407,11 @@ export default function PicksPage() {
             </div>
           </div>
 
-          <div>
+          <div className="space-y-6">
             {slate?.season != null && (
               <StandingsPanel season={slate.season} week={slate.week} token={token} />
             )}
+            <ModelAccuracyPanel />
           </div>
         </div>
       )}

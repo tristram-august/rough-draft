@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import get_optional_user
 from app.db import db_session
-from app.models import Game, GamePick, Team, User
+from app.models import Game, GamePick, GamePrediction, Team, User
 from app.schemas import (
     PickIn,
     PickLeaderRow,
@@ -169,6 +169,13 @@ async def picks_slate(
         abbrev: name for abbrev, name in (await session.execute(select(Team.abbrev, Team.name))).all()
     }
 
+    predictions = {
+        p.game_id: p
+        for p in (
+            await session.execute(select(GamePrediction).where(GamePrediction.game_id.in_(game_ids)))
+        ).scalars()
+    }
+
     now = datetime.now(EASTERN)
     out: list[SlateGameOut] = []
     for g in games:
@@ -180,6 +187,8 @@ async def picks_slate(
         result = None
         if pick is not None and g.home_score is not None and g.away_score is not None:
             result = "push" if win is None else ("win" if pick == win else "loss")
+
+        pred = predictions.get(g.game_id)
 
         out.append(
             SlateGameOut(
@@ -207,6 +216,8 @@ async def picks_slate(
                 split=PickSplitOut(away=away_n, home=home_n, total=away_n + home_n),
                 winner=win,
                 your_result=result,
+                model_home_win_prob=pred.home_win_prob if pred else None,
+                model_favorite=pred.predicted_winner if pred else None,
             )
         )
 

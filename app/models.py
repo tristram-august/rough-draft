@@ -578,6 +578,45 @@ class NewsCache(Base):
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
+class EloRating(Base):
+    """
+    A team's current Elo rating (see app/elo.py), as of its most recent game
+    processed by scripts/build_elo_ratings.py. One row per team; rebuilt from
+    scratch each time that script runs, not appended to.
+    """
+    __tablename__ = "elo_rating"
+
+    team: Mapped[str] = mapped_column(String(8), primary_key=True)
+    rating: Mapped[float] = mapped_column(Float)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class GamePrediction(Base):
+    """
+    The Elo model's pre-game prediction for one game, plus (once the game is
+    final) how it and the Vegas closing line each did. Covers both historical
+    games — the backtest, exposed via /api/predictions/accuracy — and
+    upcoming games, where actual_winner/correct/vegas_correct stay null until
+    build_elo_ratings.py is rerun after the game finishes.
+    """
+    __tablename__ = "game_prediction"
+
+    game_id: Mapped[str] = mapped_column(ForeignKey("game.game_id"), primary_key=True)
+
+    home_elo_pre: Mapped[float] = mapped_column(Float)
+    away_elo_pre: Mapped[float] = mapped_column(Float)
+    home_win_prob: Mapped[float] = mapped_column(Float)
+    predicted_winner: Mapped[str] = mapped_column(String(8))
+
+    actual_winner: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    correct: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+
+    # Vegas closing spread_line's implied favorite, for the same game — the
+    # baseline the model is honestly measured against, not just itself.
+    vegas_favorite: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    vegas_correct: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+
+
 class Post(Base):
     """A blog post, authored in markdown by a mod."""
     __tablename__ = "post"
