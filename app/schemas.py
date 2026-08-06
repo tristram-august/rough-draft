@@ -258,6 +258,8 @@ class PostSummary(BaseModel):
     published_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
+    like_count: int = 0
+    comment_count: int = 0
 
 
 class PostOut(PostSummary):
@@ -272,6 +274,27 @@ class PostListOut(BaseModel):
 class TagCountOut(BaseModel):
     tag: str
     count: int
+
+
+# ── Post comments / likes ───────────────────────────────────────────────────────
+
+class PostCommentIn(BaseModel):
+    body: str = Field(min_length=1, max_length=2000)
+
+
+class PostCommentOut(BaseModel):
+    id: int
+    post_id: int
+    user_id: int
+    username: str
+    body: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class PostLikeOut(BaseModel):
+    likes: int = Field(ge=0)
+    your_liked: bool
 
 
 # ── Fantasy ───────────────────────────────────────────────────────────────────

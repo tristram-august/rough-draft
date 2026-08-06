@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../contexts/auth-context";
 import { teamColor } from "../lib/team-colors";
+import { getClientId } from "./lib/clientId";
 
 /** -----------------------------
  * Types (minimal, UI-focused)
@@ -147,15 +148,6 @@ type CommentOut = {
  * ------------------------------ */
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api";
-
-function getClientId(): string {
-  const key = "rough_draft_client_id";
-  const existing = typeof window !== "undefined" ? window.localStorage.getItem(key) : null;
-  if (existing) return existing;
-  const id = crypto.randomUUID();
-  window.localStorage.setItem(key, id);
-  return id;
-}
 
 function posVariant(pos: string): "qb" | "rb" | "wr" | "te" | "def" | "k" | "other" {
   const p = (pos || "").toUpperCase();

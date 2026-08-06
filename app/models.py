@@ -679,3 +679,42 @@ class Comment(Base):
         CheckConstraint("char_length(body) >= 1", name="ck_comment_body_not_empty"),
         Index("ix_comment_pick_created", "pick_id", "created_at"),
     )
+
+
+class PostComment(Base):
+    __tablename__ = "post_comment"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    post_id: Mapped[int] = mapped_column(ForeignKey("post.id", ondelete="CASCADE"), index=True, nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("user.id"), index=True, nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    author: Mapped["User"] = relationship()
+    post: Mapped["Post"] = relationship()
+
+    __table_args__ = (
+        CheckConstraint("char_length(body) >= 1", name="ck_post_comment_body_not_empty"),
+        Index("ix_post_comment_post_created", "post_id", "created_at"),
+    )
+
+
+class PostLike(Base):
+    """
+    A single like on a blog post. Anonymous-friendly, same identity shape as
+    PickVote (liker_type "anon"|"user", liker_key = client uuid or user id as
+    text) but boolean rather than valued — no updated_at, since a like has no
+    in-place-editable value, only insert (like) or delete (unlike).
+    """
+    __tablename__ = "post_like"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    post_id: Mapped[int] = mapped_column(ForeignKey("post.id", ondelete="CASCADE"), index=True, nullable=False)
+    liker_type: Mapped[str] = mapped_column(String(8))   # "anon" | "user"
+    liker_key: Mapped[str] = mapped_column(String(64))   # uuid or user id
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("post_id", "liker_type", "liker_key", name="uq_like_one_per_liker_per_post"),
+    )

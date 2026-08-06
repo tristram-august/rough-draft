@@ -11,7 +11,7 @@ from sqlalchemy.orm import joinedload
 
 from app.auth import get_current_user, get_optional_user
 from app.db import db_session
-from app.models import Post, PostTag, User
+from app.models import Post, PostComment, PostLike, PostTag, User
 from app.schemas import PostIn, PostListOut, PostOut, PostSummary, TagCountOut
 
 router = APIRouter(tags=["blog"])
@@ -74,7 +74,7 @@ async def _unique_slug(session: AsyncSession, desired: str, exclude_id: int | No
         suffix += 1
 
 
-def _to_summary(post: Post) -> PostSummary:
+def _to_summary(post: Post, like_count: int = 0, comment_count: int = 0) -> PostSummary:
     return PostSummary(
         id=post.id,
         slug=post.slug,
@@ -89,11 +89,31 @@ def _to_summary(post: Post) -> PostSummary:
         published_at=post.published_at,
         created_at=post.created_at,
         updated_at=post.updated_at,
+        like_count=like_count,
+        comment_count=comment_count,
     )
 
 
-def _to_out(post: Post) -> PostOut:
-    return PostOut(**_to_summary(post).model_dump(), body_markdown=post.body_markdown)
+def _to_out(post: Post, like_count: int = 0, comment_count: int = 0) -> PostOut:
+    return PostOut(
+        **_to_summary(post, like_count, comment_count).model_dump(),
+        body_markdown=post.body_markdown,
+    )
+
+
+async def _social_counts(session: AsyncSession, post_ids: list[int]) -> dict[int, tuple[int, int]]:
+    """post_id -> (like_count, comment_count), batched (no N+1) across a page of posts."""
+    if not post_ids:
+        return {}
+    likes = await session.execute(
+        select(PostLike.post_id, func.count()).where(PostLike.post_id.in_(post_ids)).group_by(PostLike.post_id)
+    )
+    like_counts = {row[0]: row[1] for row in likes.all()}
+    comments = await session.execute(
+        select(PostComment.post_id, func.count()).where(PostComment.post_id.in_(post_ids)).group_by(PostComment.post_id)
+    )
+    comment_counts = {row[0]: row[1] for row in comments.all()}
+    return {pid: (like_counts.get(pid, 0), comment_counts.get(pid, 0)) for pid in post_ids}
 
 
 async def _reload_out(session: AsyncSession, post_id: int) -> PostOut:
@@ -105,7 +125,8 @@ async def _reload_out(session: AsyncSession, post_id: int) -> PostOut:
     post = (await session.execute(stmt)).unique().scalars().first()
     if post is None:
         raise HTTPException(status_code=404, detail="Post not found")
-    return _to_out(post)
+    like_count, comment_count = (await _social_counts(session, [post_id])).get(post_id, (0, 0))
+    return _to_out(post, like_count, comment_count)
 
 
 def _apply_tags(post: Post, tags: list[str]) -> None:
@@ -169,7 +190,11 @@ async def list_posts(
     )
     posts = (await session.execute(stmt)).unique().scalars().all()
 
-    return PostListOut(posts=[_to_summary(p) for p in posts], total=total)
+    counts = await _social_counts(session, [p.id for p in posts])
+    return PostListOut(
+        posts=[_to_summary(p, *counts.get(p.id, (0, 0))) for p in posts],
+        total=total,
+    )
 
 
 @router.get("/posts/tags", response_model=list[TagCountOut])
@@ -197,7 +222,8 @@ async def get_post(
         raise HTTPException(status_code=404, detail="Post not found")
     if post.status != "published" and not (current_user and current_user.is_mod):
         raise HTTPException(status_code=404, detail="Post not found")
-    return _to_out(post)
+    like_count, comment_count = (await _social_counts(session, [post.id])).get(post.id, (0, 0))
+    return _to_out(post, like_count, comment_count)
 
 
 # ── Mod writes ────────────────────────────────────────────────────────────────

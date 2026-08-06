@@ -103,14 +103,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     window.localStorage.setItem(USER_KEY, JSON.stringify(u));
     setToken(t);
     setUser(u);
-    // Fire-and-forget: migrate any anonymous votes to this account
-    fetch(`${API_BASE}/auth/claim-anon-votes`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${t}`,
-        "X-Client-Id": window.localStorage.getItem("rough_draft_client_id") ?? "",
-      },
-    }).catch(() => {});
+    // Fire-and-forget: migrate any anonymous votes/likes to this account
+    const anonHeaders = {
+      Authorization: `Bearer ${t}`,
+      "X-Client-Id": window.localStorage.getItem("rough_draft_client_id") ?? "",
+    };
+    fetch(`${API_BASE}/auth/claim-anon-votes`, { method: "POST", headers: anonHeaders }).catch(() => {});
+    fetch(`${API_BASE}/auth/claim-anon-likes`, { method: "POST", headers: anonHeaders }).catch(() => {});
   }
 
   function logout() {

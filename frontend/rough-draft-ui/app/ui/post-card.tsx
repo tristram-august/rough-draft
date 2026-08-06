@@ -16,6 +16,15 @@ export function PostCard({ post }: { post: PostSummary }) {
           <span>{post.reading_minutes} min read</span>
           <span aria-hidden>·</span>
           <span>{post.author_username}</span>
+          <span aria-hidden>·</span>
+          <span className="inline-flex items-center gap-1">
+            <span aria-hidden>♡</span>
+            {post.like_count}
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <span aria-hidden>💬</span>
+            {post.comment_count}
+          </span>
         </div>
 
         <h2 className="mt-2.5 text-xl font-semibold leading-snug tracking-tight text-slate-100 transition-colors group-hover:text-white">

@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MarkdownBody } from "../../ui/markdown";
+import { PostComments } from "../../ui/post-comments";
+import { PostLikeButton } from "../../ui/post-like-button";
 import { fetchPost, formatPostDate } from "../../lib/posts";
 
 export const dynamic = "force-dynamic";
@@ -54,6 +56,7 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
           <span>{post.reading_minutes} min read</span>
           <span aria-hidden>·</span>
           <span>{post.author_username}</span>
+          <PostLikeButton postId={post.id} />
         </div>
 
         <h1 className="mt-3 text-3xl font-bold leading-tight tracking-tight sm:text-4xl">
@@ -89,6 +92,10 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
 
       <div className="mt-2">
         <MarkdownBody>{post.body_markdown}</MarkdownBody>
+      </div>
+
+      <div className="mt-10 border-t border-slate-800 pt-8">
+        <PostComments postId={post.id} />
       </div>
     </article>
   );

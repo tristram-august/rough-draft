@@ -12,6 +12,7 @@ from app.api_matchup_stats import router as matchup_stats_router
 from app.api_mock_draft import router as mock_draft_router
 from app.api_news import router as news_router
 from app.api_picks import router as picks_router
+from app.api_post_social import router as post_social_router
 from app.api_predictions import router as predictions_router
 from app.api_power import router as power_router
 from app.api_schedule import router as schedule_router
@@ -46,4 +47,5 @@ def create_app() -> FastAPI:
     app.include_router(matchup_stats_router, prefix="/api")
     app.include_router(news_router, prefix="/api")
     app.include_router(predictions_router, prefix="/api")
+    app.include_router(post_social_router, prefix="/api")
     return app

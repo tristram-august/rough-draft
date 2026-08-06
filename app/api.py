@@ -10,6 +10,7 @@ from sqlalchemy import select, func, and_, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
+from app.anon import anon_key_from_header as _anon_voter_key
 from app.auth import create_access_token, get_current_user, get_optional_user, hash_password, verify_password
 from app.email import send_verification_email, send_reset_email
 from app.limiter import limiter
@@ -221,15 +222,6 @@ async def pick_class_ranks(
     }
 
 
-def _anon_voter_key(x_client_id: str | None) -> str | None:
-    if not x_client_id:
-        return None
-    x_client_id = x_client_id.strip()
-    if len(x_client_id) < 8 or len(x_client_id) > 64:
-        return None
-    return x_client_id
-
-
 @router.get("/draft/teams", response_model=list[TeamOut])
 async def draft_teams(
     year: int = Query(..., ge=1936, le=2100),
@@ -380,14 +372,6 @@ async def team_draft_class(
     if team is None:
         raise HTTPException(status_code=404, detail="Team not found")
     return TeamDraftClass(team=team_out(team), year=year, picks=[pick_to_board_row(p) for p in picks])
-
-def _anon_voter_key(x_client_id: str | None) -> str | None:
-    if not x_client_id:
-        return None
-    x_client_id = x_client_id.strip()
-    if len(x_client_id) < 8 or len(x_client_id) > 64:
-        return None
-    return x_client_id
 
 @router.post("/pick/{year}/{overall}/vote", response_model=CommunityVotesOut)
 async def vote_on_pick(
