@@ -110,7 +110,11 @@ Order was 1 → 5A → 2 → 3 → 4, as planned.
 - **Phase B of item 5** — porting the mock draft simulator from
   `C:\Users\trist\OneDrive\Desktop\draft\mock_draft_template.html`. Still its own project.
 - **In-season score refresh.** Pick'em grading reads `game.home_score`, which only
-  updates when `scripts/ingest_schedules.py` re-runs. Needs a weekly cron before Sept 9.
+  updates when `scripts/ingest_schedules.py` re-runs — and the Elo model
+  (`scripts/build_elo_ratings.py`) has the same problem, since stale scores mean
+  stale ratings. `scripts/refresh_weekly.py` now chains both into one command;
+  still need to actually wire it up as a Railway Cron Job (see DEPLOYMENT.md
+  "Keeping Data Fresh") before Sept 9 — the script existing doesn't run it.
 - **Browser verification.** Sortable columns, pick buttons, and ballot drag-and-drop are
   proven at the API layer but were never clicked in a real browser.
 - **Fantasy board refresh** — is the 2026 list a one-time import, or does it need

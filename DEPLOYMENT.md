@@ -41,7 +41,19 @@ docker exec <api-container> python3 scripts/ingest_player_stats_subset.py
 # 5. Ingest OL blocking stats (one year at a time)
 docker exec <api-container> python3 scripts/ingest_ol_stats.py data/ol_stats/offense_blocking_2025.csv --season 2025
 # repeat for each year 2006–2025
+
+# 6. Ingest schedules (needed for pick'em grading and the Elo model below)
+docker exec <api-container> python3 scripts/ingest_schedules.py
+
+# 7. Build Elo ratings + game predictions (picks page "Model X%" chip, /api/predictions/accuracy)
+docker exec <api-container> python3 scripts/build_elo_ratings.py
 ```
+
+> Steps 6 and 7 are easy to miss because nothing errors if you skip them — the
+> `game`/`elo_rating`/`game_prediction` tables just stay empty and the features
+> that read them (pick'em scores, the model prediction chip, model accuracy
+> panel) silently don't render. See "Keeping data fresh" below — both need to
+> be rerun regularly, not just once.
 
 ---
 
@@ -161,9 +173,46 @@ openssl rand -hex 32
    python scripts/ingest_player_stats_subset.py
    # OL stats (repeat for each year):
    python scripts/ingest_ol_stats.py data/ol_stats/offense_blocking_2025.csv --season 2025
+   # Schedules + Elo model — see "Keeping data fresh" below for the weekly version:
+   python scripts/ingest_schedules.py
+   python scripts/build_elo_ratings.py
    ```
 
 > After both services deploy, update `CORS_ORIGINS` and `APP_URL` on the API if the frontend URL wasn't known at first deploy.
+
+---
+
+## Keeping Data Fresh (Weekly Cron)
+
+Two things go stale during the season and nothing warns you when they do:
+
+- **Game scores**, read from `game.home_score`/`away_score` — pick'em grading
+  and the standings depend on these being current.
+- **Elo ratings + predictions** — depend on scores, so they're stale by
+  definition whenever scores are.
+
+Both come from the same two scripts used in initial setup
+(`scripts/ingest_schedules.py`, `scripts/build_elo_ratings.py`), chained
+together in `scripts/refresh_weekly.py` for convenience:
+
+```bash
+docker exec <api-container> python3 scripts/refresh_weekly.py
+```
+
+**Recommended cadence**: weekly, after Monday Night Football finishes (e.g.
+Tuesday morning) — that's when every game for the week has a final score.
+
+**On Railway**: add a third service from the same repo (root directory `/`,
+same Dockerfile as the API service) and set its **Cron Schedule** under
+Settings → Deploy (e.g. `0 9 * * 2` for 9am UTC every Tuesday). Override its
+start command to:
+```
+python scripts/refresh_weekly.py
+```
+It needs the same `DATABASE_URL` env var as the API service — Railway lets
+you reference another service's variable (`${{API.DATABASE_URL}}`) instead of
+duplicating it. A Railway Cron Job service runs the command to completion on
+schedule rather than staying up, so no `healthcheckPath` is needed for it.
 
 ---
 
