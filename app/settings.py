@@ -30,6 +30,11 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     smtp_from: str = "noreply@example.com"
     app_url: str = "http://localhost:3000"
+    # FantasyPros public API (https://api.fantasypros.com/public/v2/json) — used
+    # for live ADP/ECR pulls. Leave empty to disable. The free tier caps every
+    # response at 10 rows regardless of position/count, which currently rules
+    # out a full fantasy_rank refresh through it — see ROADMAP.md.
+    fantasypros_api_key: str = ""
 
 
 settings = Settings()

@@ -18,6 +18,7 @@ Set these in your hosting platform (never commit them):
 | `SMTP_PASSWORD` | ✗ | SMTP password / API key | `SG.xxxxx` |
 | `SMTP_FROM` | ✗ | From address for outgoing emails | `noreply@yourdomain.com` |
 | `APP_URL` | ✗ | Public frontend URL used in email links (default: http://localhost:3000) | `https://yourdomain.com` |
+| `FANTASYPROS_API_KEY` | ✗ | FantasyPros API key for `scripts/ingest_fantasypros.py` (fantasy board refresh) — needs their **premium** plan, the free tier caps responses at 10 rows | `vKqFm...` |
 
 > The app will **refuse to start** if `APP_ENV=production` and `SECRET_KEY` is still the default.
 
@@ -47,6 +48,9 @@ docker exec <api-container> python3 scripts/ingest_schedules.py
 
 # 7. Build Elo ratings + game predictions (picks page "Model X%" chip, /api/predictions/accuracy)
 docker exec <api-container> python3 scripts/build_elo_ratings.py
+
+# 8. Fantasy draft board (requires FANTASYPROS_API_KEY on their premium plan — see env table above)
+docker exec <api-container> python3 scripts/ingest_fantasypros.py --season 2026
 ```
 
 > Steps 6 and 7 are easy to miss because nothing errors if you skip them — the

@@ -117,7 +117,20 @@ Order was 1 → 5A → 2 → 3 → 4, as planned.
   "Keeping Data Fresh") before Sept 9 — the script existing doesn't run it.
 - **Browser verification.** Sortable columns, pick buttons, and ballot drag-and-drop are
   proven at the API layer but were never clicked in a real browser.
-- **Fantasy board refresh** — is the 2026 list a one-time import, or does it need
-  re-pulling as ADP moves through August?
+- **Fantasy board refresh** — resolved. `FANTASYPROS_API_KEY` is on their premium
+  plan (the free tier's 10-row-per-response cap made a full board impossible;
+  premium removes it — confirmed via `"tier"` in the response body, not just the
+  upgrade confirmation, since the first two keys issued after upgrading still
+  reported `free` until a fresh key actually picked up the new plan).
+  `scripts/ingest_fantasypros.py` pulls live ECR (`/players`, cross-position,
+  for `overall_rank` + ADP) and tier/position-rank/bye (`/{season}/consensus-rankings`,
+  one call per position) and does a full delete-then-rebuild per season — an
+  upsert would've left old CSV-import ranks sitting alongside new ones under a
+  different numbering, duplicating every player (hit this in testing, fixed).
+  `sos`/`avg_diff` aren't exposed by the API at all and stay null. Not yet on a
+  schedule — still a manual `python scripts/ingest_fantasypros.py --season 2026`,
+  candidate for folding into the same weekly cron as `refresh_weekly.py` once
+  that's actually wired up in Railway.
+  The old CSV path (`scripts/ingest_fantasy_ranks.py`) still works as a fallback.
 - **`ecrAdp` refresh + rookie linking.** 105 of 742 board players don't link to
   `player_dim` because they're 2026 rookies who aren't in `players_NFL.csv` yet.
