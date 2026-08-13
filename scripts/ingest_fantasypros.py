@@ -14,8 +14,8 @@ Two kinds of calls, 1/second to stay under the plan's rate limit:
   - GET /nfl/players (once) -- the only endpoint with a true cross-position
     overall rank (rank_ecr_ppr) and ADP (rank_adp_ppr) in one place.
   - GET /nfl/{season}/consensus-rankings?position=X&scoring=PPR, once per
-    position in BOARD_POSITIONS -- gives tier, position rank (as "RB1" etc),
-    and bye week, none of which /players exposes.
+    position in BOARD_POSITIONS -- gives position rank (as "RB1" etc) and bye
+    week, neither of which /players exposes.
 
 Merged on FantasyPros' own numeric player_id (exact, no name-matching needed
 between our two calls). `overall_rank` comes from /players' rank_ecr_ppr;
@@ -31,7 +31,12 @@ build_elo_ratings.py, for the same reason.
 
 `sos` and `avg_diff` aren't exposed by this API at all (they're proprietary
 Draft Wizard export fields) and are left null, same as any row the old CSV
-importer left unset for other reasons.
+importer left unset for other reasons. `tier` is also left null: consensus-
+rankings' tier is position-relative (QB1..QBn restart their own 1..N), and
+this API has no ALL-position ranking that would give a genuine cross-position
+tier -- passing the position-relative number through produced a nonsense
+"Tier 1/2/3/1/1..." sequence on the board UI, which draws a new tier divider
+every time the value changes in overall_rank order (app/ui/fantasy-board.tsx).
 
 Player-name linking to player_dim reuses ingest_fantasy_ranks.py's NameIndex
 unchanged.
@@ -40,24 +45,18 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import json
 import re
 import time
-import urllib.error
-import urllib.parse
-import urllib.request
 
 from sqlalchemy import delete
 from sqlalchemy.dialects.postgresql import insert
 
 from app.db import get_sessionmaker
+from app.fantasypros_client import RATE_LIMIT_SECONDS, fetch as _fetch, warn_if_capped as _warn_if_capped
 from app.models import FantasyRank
-from app.settings import settings
 from scripts.ingest_fantasy_ranks import LINKABLE_POSITIONS, build_name_index
 
-API_BASE = "https://api.fantasypros.com/public/v2/json/nfl"
 BOARD_POSITIONS = ["QB", "RB", "WR", "TE", "K", "DST"]
-RATE_LIMIT_SECONDS = 1.1  # premium plan is 1 req/sec; leave a little headroom
 
 _POS_RANK_RE = re.compile(r"^[A-Z]+(\d+)$")
 
@@ -67,20 +66,6 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--season", type=int, required=True, help="Season the board is for (e.g. 2026)")
     p.add_argument("--scoring", default="PPR", choices=["STD", "PPR", "HALF"])
     return p.parse_args()
-
-
-def _fetch(path: str, params: dict) -> dict:
-    if not settings.fantasypros_api_key:
-        raise SystemExit("FANTASYPROS_API_KEY is not set (see .env / app/settings.py)")
-    qs = urllib.parse.urlencode(params)
-    url = f"{API_BASE}{path}?{qs}" if qs else f"{API_BASE}{path}"
-    req = urllib.request.Request(url, headers={"x-api-key": settings.fantasypros_api_key})
-    try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            return json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as e:
-        body = e.read().decode("utf-8", errors="replace")
-        raise SystemExit(f"FantasyPros API error {e.code} on {path}: {body}") from e
 
 
 def _int_or_none(val: object) -> int | None:
@@ -146,7 +131,14 @@ async def ingest(season: int, scoring: str) -> None:
                 {
                     "season": season,
                     "overall_rank": overall_rank,
-                    "tier": p.get("tier"),
+                    # NOT p.get("tier") -- consensus-rankings' tier is
+                    # position-relative (QB1..QBn each restart at tier 1), so
+                    # it isn't meaningful against a cross-position overall_rank
+                    # and produces a nonsense sequence of "Tier 1/2/3/1/1..."
+                    # dividers on the board UI. This API has no ALL-position
+                    # ranking that would give a genuine overall tier, so this
+                    # stays null -- same treatment as sos/avg_diff below.
+                    "tier": None,
                     "player_name": name[:128],
                     "team": (p.get("player_team_id") or "").strip()[:8] or None,
                     "position": position[:8],
@@ -156,6 +148,7 @@ async def ingest(season: int, scoring: str) -> None:
                     "ecr_vs_adp": ecr_vs_adp,
                     "avg_diff": None,
                     "gsis_id": gsis_id,
+                    "fantasypros_player_id": player_id,
                 }
             )
 
@@ -172,12 +165,6 @@ async def ingest(season: int, scoring: str) -> None:
         await session.commit()
 
     print(f"Done — {len(payload)} rows written for {season} (full rebuild).")
-
-
-def _warn_if_capped(resp: dict) -> None:
-    if resp.get("public_api_limited") and resp.get("limit"):
-        print(f"  WARNING: response capped at {resp['limit']} rows (tier={resp.get('tier')}) — "
-              f"got {len(resp.get('players', []))} of {resp.get('count')}")
 
 
 if __name__ == "__main__":

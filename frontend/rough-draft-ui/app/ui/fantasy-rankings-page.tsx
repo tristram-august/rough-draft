@@ -6,6 +6,8 @@ import { useQuery } from "@tanstack/react-query";
 import { PageHeader } from "./page-header";
 import { Segmented } from "./segmented";
 import { FantasyBoard } from "./fantasy-board";
+import { ProjectionsTable } from "./projections-table";
+import { CompareTool } from "./compare-tool";
 import {
   POSITIONS,
   SCORING_LABELS,
@@ -145,6 +147,7 @@ export default function FantasyRankingsPage({
   initialBoardSeasons?: number[];
   initialProductionSeasons?: number[];
 } = {}) {
+  const [tab, setTab] = React.useState<"board" | "leaderboard" | "projections" | "compare">("board");
   const [season, setSeason] = React.useState<number | null>(null);
   const [week, setWeek] = React.useState<number | null>(null);
   const [position, setPosition] = React.useState<FantasyPosition>("ALL");
@@ -193,12 +196,16 @@ export default function FantasyRankingsPage({
 
   // Default to the draft board — it's the forward-looking view.
   const activeSeason = season ?? seasons[0] ?? null;
-  const showBoard = activeSeason != null && boardSeasons.includes(activeSeason);
+  // Availability checks per tab, not a view-selector — season is now a shared
+  // filter across all four tabs (Board/Leaderboard/Projections/Compare), not
+  // the thing that decides which one renders.
+  const boardAvailable = activeSeason != null && boardSeasons.includes(activeSeason);
+  const productionAvailable = activeSeason != null && (seasonsQuery.data?.includes(activeSeason) ?? false);
 
   const weeksQuery = useQuery({
     queryKey: ["fantasy-weeks", activeSeason],
     queryFn: () => fetchFantasyWeeks(activeSeason as number),
-    enabled: activeSeason != null && !showBoard,
+    enabled: activeSeason != null && tab === "leaderboard",
   });
 
   // Per-game sorting needs a games floor, or one-game samples top the board.
@@ -226,7 +233,7 @@ export default function FantasyRankingsPage({
         minGames,
         limit: 100,
       }),
-    enabled: activeSeason != null && !showBoard,
+    enabled: activeSeason != null && tab === "leaderboard",
     placeholderData: (prev) => prev,
   });
 
@@ -241,28 +248,39 @@ export default function FantasyRankingsPage({
     <div className="mx-auto max-w-6xl px-4 py-8">
       <PageHeader
         eyebrow="Fantasy Draft"
-        title={showBoard ? `${activeSeason} Draft Board` : "Production Rankings"}
-        subtitle={
-          showBoard
-            ? "Preseason consensus ranks and tiers for the upcoming draft. Switch the year to see what actually happened."
-            : "Fantasy points computed from game-by-game production. Switch scoring to match your league."
+        title={
+          tab === "board"
+            ? `${activeSeason} Draft Board`
+            : tab === "leaderboard"
+            ? "Production Rankings"
+            : tab === "projections"
+            ? "Projections"
+            : "Compare Players"
         }
-      >
-        {!showBoard && (
-          <Segmented
-            ariaLabel="Scoring format"
-            value={scoring}
-            onChange={setScoring}
-            options={(["ppr", "half", "std"] as const).map((k) => ({
-              value: k,
-              label: SCORING_LABELS[k],
-            }))}
-          />
-        )}
-      </PageHeader>
+        subtitle={
+          tab === "board"
+            ? "Preseason consensus ranks for the upcoming draft. Switch the year to see what actually happened."
+            : tab === "leaderboard"
+            ? "Fantasy points computed from game-by-game production. Switch scoring to match your league."
+            : tab === "projections"
+            ? "FantasyPros' own weekly and rest-of-season point projections."
+            : "See how individual experts rank players against each other, live."
+        }
+      />
 
       {/* Filters */}
       <div className="mb-5 flex flex-wrap items-center gap-2">
+        <Segmented
+          ariaLabel="View"
+          value={tab}
+          onChange={setTab}
+          options={[
+            { value: "board", label: "Board" },
+            { value: "leaderboard", label: "Leaderboard" },
+            { value: "projections", label: "Projections" },
+            { value: "compare", label: "Compare" },
+          ]}
+        />
         <select
           aria-label="Season"
           value={activeSeason ?? ""}
@@ -281,12 +299,43 @@ export default function FantasyRankingsPage({
         </select>
       </div>
 
-      {showBoard && activeSeason != null && <FantasyBoard season={activeSeason} />}
+      {tab === "board" && (
+        boardAvailable && activeSeason != null ? (
+          <FantasyBoard season={activeSeason} />
+        ) : (
+          <p className="text-sm text-slate-500">No draft board loaded for {activeSeason}.</p>
+        )
+      )}
 
-      {/* Production rankings — everything below is hidden on board seasons */}
-      {!showBoard && (
+      {tab === "projections" && activeSeason != null && <ProjectionsTable season={activeSeason} />}
+
+      {tab === "compare" && (
+        boardAvailable && activeSeason != null ? (
+          <CompareTool season={activeSeason} />
+        ) : (
+          <p className="text-sm text-slate-500">
+            No draft board loaded for {activeSeason} to compare from.
+          </p>
+        )
+      )}
+
+      {/* Production rankings */}
+      {tab === "leaderboard" && !productionAvailable && (
+        <p className="text-sm text-slate-500">No production data for {activeSeason} yet.</p>
+      )}
+      {tab === "leaderboard" && productionAvailable && (
         <>
       <div className="mb-5 flex flex-wrap items-center gap-2">
+        <Segmented
+          ariaLabel="Scoring format"
+          value={scoring}
+          onChange={setScoring}
+          options={(["ppr", "half", "std"] as const).map((k) => ({
+            value: k,
+            label: SCORING_LABELS[k],
+          }))}
+        />
+
         <select
           aria-label="Week"
           value={week ?? ""}

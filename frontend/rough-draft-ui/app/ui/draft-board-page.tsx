@@ -7,6 +7,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../contexts/auth-context";
 import { teamColor } from "../lib/team-colors";
 import { getClientId } from "./lib/clientId";
+import { useInjuries } from "./use-injuries";
+import { InjuryBadge } from "./injury-badge";
 
 /** -----------------------------
  * Types (minimal, UI-focused)
@@ -1318,6 +1320,8 @@ export default function DraftBoardPage() {
     staleTime: 60_000,
   });
 
+  const { byGsisId: injuriesByGsisId } = useInjuries();
+
   const [filterSheetOpen, setFilterSheetOpen] = React.useState(false);
   const activeFilterCount = [round, team, pos, q].filter(Boolean).length;
   function clearFilters() { setRound(null); setTeam(""); setPos(""); setQ(""); setOffset(0); }
@@ -1601,6 +1605,7 @@ export default function DraftBoardPage() {
                   <div className="mt-1 text-xl font-semibold text-slate-100 leading-tight">{pickQuery.data.player.full_name}</div>
                   <div className="mt-2 flex flex-wrap gap-2">
                     <Pill variant={posVariant(pickQuery.data.player.position)}>{pickQuery.data.player.position}</Pill>
+                    <InjuryBadge injury={drawerGsisId ? injuriesByGsisId.get(drawerGsisId) : null} />
                     {classRanksQuery.data?.pick_rank ? (
                       <span className="inline-flex items-center rounded-full border border-slate-700 bg-slate-950 px-2 py-0.5 text-xs text-slate-400">
                         #{classRanksQuery.data.pick_rank} {pickQuery.data.player.position} in {pickQuery.data.year} ({classRanksQuery.data.class_size} drafted)

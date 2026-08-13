@@ -107,6 +107,7 @@ export type FantasyBoardRow = {
   ecr_vs_adp: number | null;
   avg_diff: number | null;
   gsis_id: string | null;
+  fantasypros_player_id: number | null;
 };
 
 export type FantasyBoard = {
@@ -116,7 +117,7 @@ export type FantasyBoard = {
   rows: FantasyBoardRow[];
 };
 
-async function getJson<T>(path: string): Promise<T> {
+export async function getJson<T>(path: string): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, { cache: "no-store" });
   if (!res.ok) throw new Error(`Request failed (${res.status})`);
   return res.json();

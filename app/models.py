@@ -473,6 +473,9 @@ class FantasyRank(Base):
     # Best-effort link to player_dim so a board row can reach production history.
     gsis_id: Mapped[str | None] = mapped_column(String(16), nullable=True, index=True)
 
+    # FantasyPros' own numeric player id, for the /players/compare live proxy.
+    fantasypros_player_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
     __table_args__ = (
         UniqueConstraint("season", "overall_rank", name="uq_fantasy_rank_season_rank"),
         Index("ix_fantasy_rank_season_pos", "season", "position"),
@@ -589,6 +592,68 @@ class EloRating(Base):
     team: Mapped[str] = mapped_column(String(8), primary_key=True)
     rating: Mapped[float] = mapped_column(Float)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class PlayerInjury(Base):
+    """
+    Current injury report snapshot from FantasyPros (see
+    scripts/ingest_fantasypros_injuries.py). One row per currently-injured,
+    linkable player; rebuilt from scratch on every ingest run, not appended
+    to -- same "live snapshot" contract as EloRating. Only rows that resolve
+    to a gsis_id are kept: an injury badge only ever renders next to a player
+    already shown elsewhere (drawer, board row), so an unlinked row has
+    nowhere to attach and is pure dead weight.
+    """
+    __tablename__ = "player_injury"
+
+    gsis_id: Mapped[str] = mapped_column(String(16), primary_key=True)  # no FK -- see fantasy_rank.gsis_id precedent
+
+    player_name: Mapped[str] = mapped_column(String(128))
+    team: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    position: Mapped[str | None] = mapped_column(String(8), nullable=True, index=True)
+
+    status: Mapped[str] = mapped_column(String(32), index=True)  # e.g. "Out", "Doubtful", "Questionable", "IR", "PUP"
+    status_short: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    injury_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    probability_of_playing: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class PlayerProjection(Base):
+    """
+    FantasyPros' own weekly/rest-of-season fantasy-point projections (see
+    scripts/ingest_fantasypros_projections.py). One row per player per
+    (season, week); week is NULL for rest-of-season and 0 for preseason,
+    matching the API's own "week=0 for preseason projections" convention.
+    Unlike PlayerInjury, unlinked rows ARE kept -- this is a browsable list
+    in its own right (matches FantasyRank's precedent), not just an
+    attachment to already-rendered UI elsewhere.
+    """
+    __tablename__ = "player_projection"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    season: Mapped[int] = mapped_column(Integer, index=True)
+    week: Mapped[int | None] = mapped_column(Integer, nullable=True)  # NULL=ROS, 0=preseason, 1-18=that week
+
+    gsis_id: Mapped[str | None] = mapped_column(String(16), nullable=True, index=True)
+    player_name: Mapped[str] = mapped_column(String(128), index=True)
+    team: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    position: Mapped[str] = mapped_column(String(8), index=True)
+
+    points: Mapped[float | None] = mapped_column(Float, nullable=True)
+    points_ppr: Mapped[float | None] = mapped_column(Float, nullable=True)
+    points_half: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    # Raw position-specific stat object verbatim (pass_att/rush_yds/rec_yds/etc
+    # differ by position's own shape) -- same Text-blob convention as
+    # NewsCache.items_json, not ~25 mostly-null typed columns or an EAV table.
+    stats_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    __table_args__ = (
+        Index("ix_player_projection_season_week", "season", "week"),
+        Index("ix_player_projection_season_week_position", "season", "week", "position"),
+    )
 
 
 class GamePrediction(Base):

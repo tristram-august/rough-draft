@@ -5,16 +5,21 @@ database rather than in Python.
 """
 from __future__ import annotations
 
+import asyncio
+import json
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import Float, Integer, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 
 from app.db import db_session
-from app.models import FantasyRank, PlayerDim, PlayerGameStat
+from app.fantasypros_client import fetch as _fp_fetch
+from app.limiter import limiter
+from app.models import FantasyRank, PlayerDim, PlayerGameStat, PlayerProjection
 from app.schemas import (
+    ComparePlayersOut,
     FantasyBoardOut,
     FantasyBoardRow,
     FantasyGameRow,
@@ -24,6 +29,8 @@ from app.schemas import (
     FantasyPlayerSeasonOut,
     FantasyScoringPresetOut,
     FantasyStatLine,
+    PlayerProjectionRow,
+    PlayerProjectionsOut,
 )
 
 router = APIRouter(tags=["fantasy"])
@@ -183,9 +190,125 @@ async def fantasy_board(
                 ecr_vs_adp=r.ecr_vs_adp,
                 avg_diff=r.avg_diff,
                 gsis_id=r.gsis_id,
+                fantasypros_player_id=r.fantasypros_player_id,
             )
             for r in rows
         ],
+    )
+
+
+@router.get("/fantasy/projections/weeks", response_model=list[int])
+async def fantasy_projection_weeks(
+    season: int = Query(...),
+    session: AsyncSession = Depends(db_session),
+) -> list[int]:
+    """Concrete (non-ROS) weeks actually loaded for this season."""
+    stmt = (
+        select(PlayerProjection.week)
+        .distinct()
+        .where(PlayerProjection.season == season, PlayerProjection.week.is_not(None))
+        .order_by(PlayerProjection.week)
+    )
+    return [int(w) for w in (await session.execute(stmt)).scalars().all()]
+
+
+@router.get("/fantasy/projections", response_model=PlayerProjectionsOut)
+async def fantasy_projections(
+    season: int = Query(...),
+    week: int | None = Query(default=None, ge=0, le=18),
+    ros: bool = Query(default=False),
+    position: str = Query(default="ALL"),
+    scoring: str = Query(default="ppr"),
+    limit: int = Query(default=300, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
+    session: AsyncSession = Depends(db_session),
+) -> PlayerProjectionsOut:
+    if ros == (week is not None):
+        raise HTTPException(status_code=400, detail="Pass exactly one of week or ros=true")
+    if scoring not in SCORING_PRESETS:
+        raise HTTPException(status_code=400, detail="Unknown scoring preset")
+
+    position = position.upper()
+    week_value = None if ros else week
+    week_filter = PlayerProjection.week.is_(None) if week_value is None else PlayerProjection.week == week_value
+
+    filters = [PlayerProjection.season == season, week_filter]
+    if position == "FLEX":
+        filters.append(PlayerProjection.position.in_(FLEX_POSITIONS))
+    elif position != "ALL":
+        filters.append(PlayerProjection.position == position)
+
+    total = (
+        await session.execute(select(func.count()).select_from(PlayerProjection).where(*filters))
+    ).scalar_one()
+
+    points_col = {"ppr": PlayerProjection.points_ppr, "half": PlayerProjection.points_half, "std": PlayerProjection.points}[scoring]
+    rows = (
+        await session.execute(
+            select(PlayerProjection)
+            .where(*filters)
+            .order_by(points_col.desc().nulls_last())
+            .limit(limit)
+            .offset(offset)
+        )
+    ).scalars().all()
+
+    return PlayerProjectionsOut(
+        season=season,
+        week=week_value,
+        is_ros=ros,
+        total=total,
+        rows=[
+            PlayerProjectionRow(
+                gsis_id=r.gsis_id,
+                player_name=r.player_name,
+                team=r.team,
+                position=r.position,
+                points=r.points,
+                points_ppr=r.points_ppr,
+                points_half=r.points_half,
+                stats=json.loads(r.stats_json) if r.stats_json else None,
+            )
+            for r in rows
+        ],
+    )
+
+
+@router.get("/players/compare", response_model=ComparePlayersOut)
+@limiter.limit("20/hour")
+async def compare_players(
+    request: Request,
+    ids: str = Query(..., description="Comma-separated FantasyPros player IDs, 2-4"),
+    position: str = Query(default="ALL", description="Position filter FantasyPros scores the comparison against"),
+) -> ComparePlayersOut:
+    try:
+        player_ids = [int(x) for x in ids.split(",") if x.strip()]
+    except ValueError:
+        raise HTTPException(status_code=400, detail="ids must be comma-separated integers")
+    if not 2 <= len(player_ids) <= 4:
+        raise HTTPException(status_code=400, detail="Provide 2-4 player IDs")
+
+    players_param = ":".join(str(i) for i in player_ids)
+    try:
+        resp = await asyncio.to_thread(
+            _fp_fetch, "/compare-players", {"players": players_param, "position": position.upper(), "details": "all"}
+        )
+    except SystemExit as e:
+        raise HTTPException(status_code=502, detail=f"FantasyPros compare request failed: {e}")
+
+    # FantasyPros serializes an empty PHP associative array as `[]`, not `{}` --
+    # normalize every "should be a dict" spot so a scoring type or player with
+    # no data doesn't 500 the response instead of just coming back empty.
+    def _as_dict(v: object) -> dict:
+        return v if isinstance(v, dict) else {}
+
+    rankings_raw = _as_dict(resp.get("rankings"))
+    rankings = {scoring: _as_dict(per_player) for scoring, per_player in rankings_raw.items()}
+
+    return ComparePlayersOut(
+        rankings=rankings,
+        players=_as_dict(resp.get("players")),
+        experts=_as_dict(resp.get("experts")),
     )
 
 
