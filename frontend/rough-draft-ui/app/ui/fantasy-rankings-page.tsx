@@ -285,8 +285,18 @@ export default function FantasyRankingsPage({
           aria-label="Season"
           value={activeSeason ?? ""}
           onChange={(e) => {
-            setSeason(Number(e.target.value));
+            const newSeason = Number(e.target.value);
+            setSeason(newSeason);
             setWeek(null);
+            // A season without a board (any prior year, until 2026 plays out)
+            // has nothing to show on the Board tab — fall back to the
+            // leaderboard rather than leaving the user on an empty state.
+            // One-directional on purpose: picking a season that *does* have a
+            // board doesn't yank someone back off the leaderboard if that's
+            // where they meant to be.
+            if (tab === "board" && !boardSeasons.includes(newSeason)) {
+              setTab("leaderboard");
+            }
           }}
           className={selectClass}
         >
