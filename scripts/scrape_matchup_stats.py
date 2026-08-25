@@ -1,25 +1,31 @@
 """
-Scrape TeamRankings.com team-comparison tables for one week's games and load
-them into `matchup_stat` — the data behind the "Matchup" panel on the picks
-board (app/ui/matchup-stats-button.tsx).
+Scrape TeamRankings.com team-comparison tables and load them into
+`matchup_stat` — the data behind the "Matchup" panel on the picks board
+(app/ui/matchup-stats-button.tsx).
 
     python3 -m scripts.scrape_matchup_stats --season 2026 --week 1
+    python3 -m scripts.scrape_matchup_stats --season 2026   # every week
 
 Combines what used to be two manual steps (a throwaway scraper + this repo's
 scripts/ingest_matchup_stats.py) into one, and derives the matchups straight
-from the `game` table instead of a hand-typed list, so any future week is
-just a different --week value. Stdlib-only (no pandas/lxml/requests) since
-`pip install` for those hits an SSL cert issue in some environments this
-needs to run in.
+from the `game` table instead of a hand-typed list. Stdlib-only (no
+pandas/lxml/requests) since `pip install` for those hits an SSL cert issue in
+some environments this needs to run in.
 
 --stat-season is which season the stat VALUES describe (defaults to
 season - 1, e.g. a week 1 2026 game gets 2025 full-season numbers, since
-that's the most recent complete season) -- override if TeamRankings starts
-publishing in-season numbers instead once 2026 itself has games played.
+that's the most recent complete season). Important: TeamRankings' own pages
+update to reflect *current-season* form once games start being played, so a
+week 10 page scraped in the preseason (still showing 2025 numbers) will look
+different from the same page scraped once 2026 is actually underway. A
+one-time full-season scrape is a reasonable placeholder for weeks far out,
+but it goes stale the moment real 2026 results exist — see
+scripts/refresh_weekly.py, which re-scrapes just the upcoming week on a
+schedule so each week's data is current by the time anyone plays it.
 
 Respects TeamRankings' robots.txt (Crawl-delay: 10) — one request per game
-(each game's page has all 12 tables), so a 16-game week is ~16 requests,
-roughly 3 minutes end to end including the delay.
+(each game's page has all 12 tables). A 16-game week is ~3 minutes; a full
+18-week season is ~270 games, roughly 45 minutes end to end.
 """
 from __future__ import annotations
 
@@ -162,43 +168,73 @@ def scrape_game(away: str, home: str, week: int, season: int, out_dir: Path) -> 
     return written
 
 
-async def main(season: int, week: int, stat_season: int | None) -> None:
+async def main(season: int, week: int | None, stat_season: int | None) -> None:
+    """week=None scrapes every week the schedule has for that season. Each
+    week is ingested right after it's scraped (not batched to the end) so a
+    multi-hour full-season run doesn't lose everything to one dropped
+    connection partway through — only whatever week was mid-scrape is lost.
+
+    Crawl-delay is paced across the *whole* run, not reset per week, since
+    it's really one continuous sequence of requests to the same host."""
     sm = get_sessionmaker()
     async with sm() as session:
-        games = (
-            await session.execute(
-                select(Game.away_team, Game.home_team).where(Game.season == season, Game.week == week)
+        if week is not None:
+            weeks = [week]
+        else:
+            weeks = sorted(
+                (
+                    await session.execute(
+                        select(Game.week)
+                        .where(Game.season == season, Game.week.is_not(None))
+                        .distinct()
+                    )
+                ).scalars()
             )
-        ).all()
 
-    if not games:
-        print(f"No games found for season={season} week={week} — check the schedule is ingested.")
+        games_by_week = {}
+        for w in weeks:
+            games_by_week[w] = (
+                await session.execute(
+                    select(Game.away_team, Game.home_team).where(Game.season == season, Game.week == w)
+                )
+            ).all()
+
+    if not any(games_by_week.values()):
+        print(f"No games found for season={season} — check the schedule is ingested.")
         return
 
-    print(f"Scraping {len(games)} games for season={season} week={week}...")
-    with TemporaryDirectory(prefix="matchup_stats_") as tmp:
-        out_dir = Path(tmp)
-        total_errors = 0
-        for i, (away, home) in enumerate(games):
-            result = scrape_game(away, home, week, season, out_dir)
-            errors = [r for r in result if r.startswith("ERROR")]
-            total_errors += len(errors)
-            print(f"  {away}@{home}: {len(result) - len(errors)} files, {len(errors)} errors")
-            for e in errors:
-                print(f"    {e}")
-            if i < len(games) - 1:
-                time.sleep(CRAWL_DELAY_SECONDS)
+    resolved_stat_season = stat_season if stat_season is not None else season - 1
+    total_games = sum(len(g) for g in games_by_week.values())
+    print(f"Scraping {total_games} games across {len(weeks)} week(s) for season={season}, stat_season={resolved_stat_season}...")
 
-        if total_errors:
-            print(f"\n{total_errors} scrape errors — ingesting whatever did succeed.")
-
-        await ingest(out_dir, stat_season if stat_season is not None else season - 1)
+    scraped = 0
+    for w in weeks:
+        games = games_by_week[w]
+        if not games:
+            continue
+        print(f"\n-- Week {w}: {len(games)} games --")
+        with TemporaryDirectory(prefix=f"matchup_stats_wk{w}_") as tmp:
+            out_dir = Path(tmp)
+            total_errors = 0
+            for away, home in games:
+                if scraped > 0:
+                    time.sleep(CRAWL_DELAY_SECONDS)
+                scraped += 1
+                result = scrape_game(away, home, w, season, out_dir)
+                errors = [r for r in result if r.startswith("ERROR")]
+                total_errors += len(errors)
+                print(f"  {away}@{home}: {len(result) - len(errors)} files, {len(errors)} errors")
+                for e in errors:
+                    print(f"    {e}")
+            if total_errors:
+                print(f"  {total_errors} scrape errors in week {w} — ingesting whatever did succeed.")
+            await ingest(out_dir, resolved_stat_season)
 
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--season", type=int, required=True)
-    p.add_argument("--week", type=int, required=True)
+    p.add_argument("--week", type=int, default=None, help="Omit to scrape every week in the season")
     p.add_argument("--stat-season", type=int, default=None, help="Defaults to season - 1")
     return p.parse_args()
 

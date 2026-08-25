@@ -331,19 +331,62 @@ function ModelAccuracyPanel() {
   );
 }
 
+function WeekNav({
+  week,
+  canPrev,
+  canNext,
+  onPrev,
+  onNext,
+}: {
+  week: number | null;
+  canPrev: boolean;
+  canNext: boolean;
+  onPrev: () => void;
+  onNext: () => void;
+}) {
+  const btnClass =
+    "rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-1.5 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-slate-900/60";
+  return (
+    <div className="flex items-center gap-2">
+      <button type="button" onClick={onPrev} disabled={!canPrev} className={btnClass} aria-label="Previous week">
+        ← Prev
+      </button>
+      <span className="min-w-[4.5rem] text-center text-sm tabular-nums text-slate-400">
+        {week != null ? `Week ${week}` : ""}
+      </span>
+      <button type="button" onClick={onNext} disabled={!canNext} className={btnClass} aria-label="Next week">
+        Next →
+      </button>
+    </div>
+  );
+}
+
 export default function PicksPage() {
   const { user, token } = useAuth();
   const queryClient = useQueryClient();
   const [error, setError] = React.useState<string | null>(null);
   const [pendingGame, setPendingGame] = React.useState<string | null>(null);
 
+  // null = let the API resolve its own default (next upcoming slate, or the
+  // most recent one once the season's over). Set once someone navigates.
+  const [manualSlate, setManualSlate] = React.useState<{ season: number; week: number } | null>(null);
+
   const slateQuery = useQuery({
-    queryKey: ["picks-slate", token],
-    queryFn: () => fetchSlate({ token }),
+    queryKey: ["picks-slate", manualSlate?.season, manualSlate?.week, token],
+    queryFn: () => fetchSlate({ season: manualSlate?.season, week: manualSlate?.week, token }),
   });
 
   const slate = slateQuery.data;
   const games = slate?.games ?? [];
+
+  // 18 regular-season weeks + wild card/divisional/conference/Super Bowl
+  // (19-22) — the schedule's own week numbering already runs straight
+  // through the postseason, so this is just where it structurally stops.
+  const LAST_WEEK = 22;
+  function goToWeek(delta: number) {
+    if (slate?.season == null || slate.week == null) return;
+    setManualSlate({ season: slate.season, week: slate.week + delta });
+  }
 
   const mutation = useMutation({
     mutationFn: ({ gameId, team }: { gameId: string; team: string }) =>
@@ -368,7 +411,17 @@ export default function PicksPage() {
         eyebrow="Picks"
         title={slate?.week != null ? `Week ${slate.week} picks` : "Game picks"}
         subtitle="Pick every game straight up. Picks lock at kickoff and grade themselves as scores come in."
-      />
+      >
+        {slate?.week != null && (
+          <WeekNav
+            week={slate.week}
+            canPrev={slate.week > 1}
+            canNext={slate.week < LAST_WEEK}
+            onPrev={() => goToWeek(-1)}
+            onNext={() => goToWeek(1)}
+          />
+        )}
+      </PageHeader>
 
       {error && (
         <div className="mb-4 rounded-xl border border-red-800/40 bg-red-950/20 px-3 py-2 text-sm text-red-300">
