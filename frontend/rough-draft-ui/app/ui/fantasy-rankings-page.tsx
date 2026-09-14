@@ -147,7 +147,11 @@ export default function FantasyRankingsPage({
   initialBoardSeasons?: number[];
   initialProductionSeasons?: number[];
 } = {}) {
-  const [tab, setTab] = React.useState<"board" | "leaderboard" | "projections" | "compare">("board");
+  // Projections, not Board, is the default landing tab — once a season's
+  // underway, "here's the preseason board" is a worse first view than
+  // "here's who's projected to score this week." Board stays reachable for
+  // whichever seasons have one, it's just not what you land on anymore.
+  const [tab, setTab] = React.useState<"board" | "leaderboard" | "projections" | "compare">("projections");
   const [season, setSeason] = React.useState<number | null>(null);
   const [week, setWeek] = React.useState<number | null>(null);
   const [position, setPosition] = React.useState<FantasyPosition>("ALL");
@@ -194,7 +198,8 @@ export default function FantasyRankingsPage({
     return merged.sort((a, b) => b - a);
   }, [boardSeasons, seasonsQuery.data]);
 
-  // Default to the draft board — it's the forward-looking view.
+  // Default to the latest season regardless of tab — Projections (the
+  // default tab) reads this the same as everything else.
   const activeSeason = season ?? seasons[0] ?? null;
   // Availability checks per tab, not a view-selector — season is now a shared
   // filter across all four tabs (Board/Leaderboard/Projections/Compare), not
@@ -247,7 +252,7 @@ export default function FantasyRankingsPage({
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       <PageHeader
-        eyebrow="Fantasy Draft"
+        eyebrow="Fantasy"
         title={
           tab === "board"
             ? `${activeSeason} Draft Board`
@@ -259,7 +264,7 @@ export default function FantasyRankingsPage({
         }
         subtitle={
           tab === "board"
-            ? "Preseason consensus ranks for the upcoming draft. Switch the year to see what actually happened."
+            ? "Preseason consensus ranks, from before Week 1 kicked off. Switch to Leaderboard to see what actually happened."
             : tab === "leaderboard"
             ? "Fantasy points computed from game-by-game production. Switch scoring to match your league."
             : tab === "projections"

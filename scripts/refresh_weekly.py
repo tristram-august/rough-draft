@@ -1,24 +1,30 @@
 """
 Weekly data refresh: re-pull schedules/scores, rebuild Elo ratings and game
-predictions from the updated results, then re-scrape matchup comparison data
-for whichever week is coming up next.
+predictions from the updated results, re-scrape matchup comparison data, and
+pull fresh FantasyPros projections — all for whichever week is coming up
+next.
 
     python scripts/refresh_weekly.py
 
 Chains ingest_schedules.ingest() + build_elo_ratings.main() +
-scrape_matchup_stats.main() — see those modules for what each step actually
-does. Meant to be the target of a recurring job (a Railway Cron Job service,
-a plain cron entry, etc.) run weekly during the season, ideally after Monday
-Night Football finishes so every game for the week has a final score. See
-DEPLOYMENT.md's "Keeping Data Fresh" section for how to wire that up.
+scrape_matchup_stats.main() + ingest_fantasypros_projections.ingest() — see
+those modules for what each step actually does. Meant to be the target of a
+recurring job (a Railway Cron Job service, a plain cron entry, etc.) run
+weekly during the season, ideally after Monday Night Football finishes so
+every game for the week has a final score. See DEPLOYMENT.md's "Keeping Data
+Fresh" section for how to wire that up.
 
-Only the *upcoming* week gets re-scraped for matchup data, not the whole
-season — TeamRankings' comparison numbers shift to reflect current-season
-form as the year goes on, so scraping every week every time would mostly
-just re-fetch pages that haven't meaningfully changed since last week, while
-missing the point of a weekly job (catching the ones that *have* changed:
-the week that's about to happen). See scripts/scrape_matchup_stats.py for a
-one-off full-season scrape instead.
+Only the *upcoming* week gets re-scraped for matchup data / re-pulled for
+projections, not the whole season — both sources shift to reflect
+current-season form/schedule as the year goes on, so redoing every week
+every time would mostly just re-fetch pages that haven't meaningfully
+changed since last week, while missing the point of a weekly job (catching
+the one that *has* changed: the week that's about to happen). See
+scripts/scrape_matchup_stats.py for a one-off full-season scrape instead.
+
+The projections step is skipped, not fatal, if FANTASYPROS_API_KEY isn't
+set — schedules/Elo/matchup are useful on their own and shouldn't fail the
+whole job over a missing key for one unrelated feature.
 """
 from __future__ import annotations
 
@@ -29,7 +35,9 @@ from sqlalchemy import select
 
 from app.db import get_sessionmaker
 from app.models import Game
+from app.settings import settings
 from scripts.build_elo_ratings import main as build_elo_ratings
+from scripts.ingest_fantasypros_projections import ingest as ingest_projections
 from scripts.ingest_schedules import ingest as ingest_schedules
 from scripts.scrape_matchup_stats import main as scrape_matchup_stats
 
@@ -55,15 +63,25 @@ async def main() -> None:
     print("\n== Rebuilding Elo ratings + predictions ==")
     await build_elo_ratings()
 
-    print("\n== Refreshing matchup data for the upcoming week ==")
     sm = get_sessionmaker()
     async with sm() as session:
         slate = await _upcoming_slate(session)
+
+    print("\n== Refreshing matchup data for the upcoming week ==")
     if slate is None:
         print("No upcoming games found — skipping.")
     else:
         season, week = slate
         await scrape_matchup_stats(season, week, None)
+
+    print("\n== Refreshing fantasy projections for the upcoming week ==")
+    if slate is None:
+        print("No upcoming games found — skipping.")
+    elif not settings.fantasypros_api_key:
+        print("FANTASYPROS_API_KEY not set — skipping.")
+    else:
+        season, week = slate
+        await ingest_projections(season, week, False)
 
 
 if __name__ == "__main__":
