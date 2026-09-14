@@ -308,7 +308,6 @@ export default function FantasyRankingsPage({
           {seasons.map((s) => (
             <option key={s} value={s}>
               {s}
-              {boardSeasons.includes(s) ? " — Draft Board" : ""}
             </option>
           ))}
         </select>
