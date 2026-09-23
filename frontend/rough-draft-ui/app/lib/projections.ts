@@ -4,6 +4,7 @@ export type PlayerProjectionRow = {
   gsis_id: string | null;
   player_name: string;
   team: string | null;
+  opponent: string | null;
   position: string;
   points: number | null;
   points_ppr: number | null;

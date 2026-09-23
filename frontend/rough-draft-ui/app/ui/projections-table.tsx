@@ -15,29 +15,45 @@ const POSITION_COLORS: Record<string, string> = {
   DST: "text-violet-400",
 };
 
+// FantasyPros' own projections cover K/DST too, unlike the computed
+// Leaderboard scoring, so this filter is a superset of ../lib/fantasy's
+// POSITIONS.
+const PROJECTION_POSITIONS = ["ALL", "QB", "RB", "WR", "TE", "FLEX", "K", "DST"] as const;
+type ProjectionPosition = (typeof PROJECTION_POSITIONS)[number];
+
 export function ProjectionsTable({ season }: { season: number }) {
   const [mode, setMode] = React.useState<"week" | "ros">("week");
+  const [week, setWeek] = React.useState<number | null>(null);
+  const [position, setPosition] = React.useState<ProjectionPosition>("ALL");
 
   const weeksQuery = useQuery({
     queryKey: ["projection-weeks", season],
     queryFn: () => fetchProjectionWeeks(season),
   });
-  const latestWeek = weeksQuery.data?.[weeksQuery.data.length - 1] ?? null;
+  const weeks = weeksQuery.data ?? [];
+  const latestWeek = weeks[weeks.length - 1] ?? null;
+  // Default to the latest week, but let the selector below override it.
+  const selectedWeek = week ?? latestWeek;
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["projections", season, mode, latestWeek],
+    queryKey: ["projections", season, mode, selectedWeek, position],
     queryFn: () =>
       fetchProjections(
         mode === "ros"
-          ? { season, ros: true }
-          : { season, week: latestWeek ?? 0 }
+          ? { season, ros: true, position }
+          : { season, week: selectedWeek ?? 0, position }
       ),
-    enabled: mode === "ros" || latestWeek != null,
+    enabled: mode === "ros" || selectedWeek != null,
     placeholderData: (prev) => prev,
   });
 
   const rows = data?.rows ?? [];
-  const weekAvailable = latestWeek != null;
+  const weekAvailable = selectedWeek != null;
+
+  // A stale week from a previously-viewed season shouldn't carry over.
+  React.useEffect(() => {
+    setWeek(null);
+  }, [season]);
 
   if (isError) {
     return (
@@ -55,9 +71,29 @@ export function ProjectionsTable({ season }: { season: number }) {
           value={mode}
           onChange={(v) => setMode(v as "week" | "ros")}
           options={[
-            { value: "week", label: weekAvailable ? `Week ${latestWeek}` : "This week" },
+            { value: "week", label: weekAvailable ? `Week ${selectedWeek}` : "This week" },
             { value: "ros", label: "Rest of season" },
           ]}
+        />
+        {mode === "week" && weeks.length > 0 && (
+          <select
+            aria-label="Week"
+            value={selectedWeek ?? ""}
+            onChange={(e) => setWeek(e.target.value === "" ? null : Number(e.target.value))}
+            className="rounded-xl border border-slate-800 bg-slate-900/40 px-3 py-1.5 text-xs font-medium text-slate-300 outline-none transition-colors focus:border-slate-600"
+          >
+            {weeks.map((w) => (
+              <option key={w} value={w}>
+                Week {w}
+              </option>
+            ))}
+          </select>
+        )}
+        <Segmented
+          ariaLabel="Position"
+          value={position}
+          onChange={setPosition}
+          options={PROJECTION_POSITIONS.map((p) => ({ value: p, label: p === "ALL" ? "All" : p }))}
         />
         {data && (
           <span className="text-xs text-slate-600">
@@ -87,6 +123,7 @@ export function ProjectionsTable({ season }: { season: number }) {
                 <th className="px-3 py-2.5 text-left font-semibold">Player</th>
                 <th className="px-2 py-2.5 text-left font-semibold">Pos</th>
                 <th className="px-2 py-2.5 text-left font-semibold">Team</th>
+                <th className="px-2 py-2.5 text-left font-semibold">Opp</th>
                 <th className="px-3 py-2.5 text-right font-semibold">Proj Pts</th>
               </tr>
             </thead>
@@ -115,6 +152,7 @@ export function ProjectionsTable({ season }: { season: number }) {
                     </span>
                   </td>
                   <td className="px-2 py-2 text-xs text-slate-500">{row.team ?? "—"}</td>
+                  <td className="px-2 py-2 text-xs text-slate-500">{row.opponent ?? "—"}</td>
                   <td className="px-3 py-2 text-right text-xs text-slate-300 tabular-nums">
                     {row.points_ppr != null ? row.points_ppr.toFixed(1) : "—"}
                   </td>

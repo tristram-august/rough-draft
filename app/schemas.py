@@ -436,6 +436,7 @@ class PlayerProjectionRow(BaseModel):
     gsis_id: str | None = None
     player_name: str
     team: str | None = None
+    opponent: str | None = None  # from the schedule, not FantasyPros -- null for ROS or a bye week
     position: str
     points: float | None = None
     points_ppr: float | None = None

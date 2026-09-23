@@ -10,14 +10,14 @@ import json
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from sqlalchemy import Float, Integer, cast, func, select
+from sqlalchemy import Float, Integer, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 
 from app.db import db_session
 from app.fantasypros_client import fetch as _fp_fetch
 from app.limiter import limiter
-from app.models import FantasyRank, PlayerDim, PlayerGameStat, PlayerProjection
+from app.models import FantasyRank, Game, PlayerDim, PlayerGameStat, PlayerProjection
 from app.schemas import (
     ComparePlayersOut,
     FantasyBoardOut,
@@ -253,6 +253,28 @@ async def fantasy_projections(
         )
     ).scalars().all()
 
+    # FantasyPros' projections payload has no opponent field -- derive it from
+    # the schedule instead. Not applicable to ROS (no single opponent) or a
+    # team on a bye that week (no game row, opponent stays null).
+    opponent_by_team: dict[str, str] = {}
+    if week_value is not None:
+        teams = {r.team for r in rows if r.team}
+        if teams:
+            game_rows = (
+                await session.execute(
+                    select(Game.home_team, Game.away_team).where(
+                        Game.season == season,
+                        Game.week == week_value,
+                        or_(Game.home_team.in_(teams), Game.away_team.in_(teams)),
+                    )
+                )
+            ).all()
+            for home, away in game_rows:
+                if home in teams:
+                    opponent_by_team[home] = away
+                if away in teams:
+                    opponent_by_team[away] = home
+
     return PlayerProjectionsOut(
         season=season,
         week=week_value,
@@ -263,6 +285,7 @@ async def fantasy_projections(
                 gsis_id=r.gsis_id,
                 player_name=r.player_name,
                 team=r.team,
+                opponent=opponent_by_team.get(r.team) if r.team else None,
                 position=r.position,
                 points=r.points,
                 points_ppr=r.points_ppr,
