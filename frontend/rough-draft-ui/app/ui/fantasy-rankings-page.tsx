@@ -36,6 +36,7 @@ function columnsFor(position: FantasyPosition): Column[] {
   switch (position) {
     case "QB":
       return [
+        { key: "paatt", label: "Pa Att", sortKey: "pass_attempts", value: (r) => s(r).pass_attempts },
         { key: "payd", label: "Pa Yd", sortKey: "pass_yards", value: (r) => s(r).pass_yards },
         { key: "patd", label: "Pa TD", sortKey: "pass_tds", value: (r) => s(r).pass_tds },
         { key: "int", label: "INT", sortKey: "pass_ints", value: (r) => s(r).pass_ints },
@@ -44,8 +45,10 @@ function columnsFor(position: FantasyPosition): Column[] {
       ];
     case "RB":
       return [
+        { key: "ruatt", label: "Ru Att", sortKey: "rush_attempts", value: (r) => s(r).rush_attempts },
         { key: "ruyd", label: "Ru Yd", sortKey: "rush_yards", value: (r) => s(r).rush_yards },
         { key: "rutd", label: "Ru TD", sortKey: "rush_tds", value: (r) => s(r).rush_tds },
+        { key: "tgt", label: "Tgt", sortKey: "targets", value: (r) => s(r).targets },
         { key: "rec", label: "Rec", sortKey: "receptions", value: (r) => s(r).receptions },
         { key: "reyd", label: "Re Yd", sortKey: "rec_yards", value: (r) => s(r).rec_yards },
         { key: "retd", label: "Re TD", sortKey: "rec_tds", value: (r) => s(r).rec_tds },
@@ -53,6 +56,7 @@ function columnsFor(position: FantasyPosition): Column[] {
     case "WR":
     case "TE":
       return [
+        { key: "tgt", label: "Tgt", sortKey: "targets", value: (r) => s(r).targets },
         { key: "rec", label: "Rec", sortKey: "receptions", value: (r) => s(r).receptions },
         { key: "reyd", label: "Re Yd", sortKey: "rec_yards", value: (r) => s(r).rec_yards },
         { key: "retd", label: "Re TD", sortKey: "rec_tds", value: (r) => s(r).rec_tds },

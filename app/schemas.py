@@ -307,11 +307,14 @@ FantasySortLiteral = Literal[
     "games",
     "name",
     "td",           # pass + rush + rec TDs combined
+    "pass_attempts",
     "pass_yards",
     "pass_tds",
     "pass_ints",
+    "rush_attempts",
     "rush_yards",
     "rush_tds",
+    "targets",
     "receptions",
     "rec_yards",
     "rec_tds",
@@ -320,11 +323,14 @@ FantasyDirectionLiteral = Literal["asc", "desc"]
 
 
 class FantasyStatLine(BaseModel):
+    pass_attempts: int = 0
     pass_yards: int = 0
     pass_tds: int = 0
     pass_ints: int = 0
+    rush_attempts: int = 0
     rush_yards: int = 0
     rush_tds: int = 0
+    targets: int = 0
     receptions: int = 0
     rec_yards: int = 0
     rec_tds: int = 0

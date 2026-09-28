@@ -57,11 +57,14 @@ SORT_COLUMNS = {
     "total": "fantasy_points",
     "games": "games",
     "name": "display_name",
+    "pass_attempts": "pass_attempts",
     "pass_yards": "pass_yards",
     "pass_tds": "pass_tds",
     "pass_ints": "pass_ints",
+    "rush_attempts": "rush_attempts",
     "rush_yards": "rush_yards",
     "rush_tds": "rush_tds",
+    "targets": "targets",
     "receptions": "receptions",
     "rec_yards": "rec_yards",
     "rec_tds": "rec_tds",
@@ -98,11 +101,14 @@ def _reception_points(scoring: str) -> float:
 
 def _stat_line(row: Any) -> FantasyStatLine:
     return FantasyStatLine(
+        pass_attempts=int(row.pass_attempts or 0),
         pass_yards=int(row.pass_yards or 0),
         pass_tds=int(row.pass_tds or 0),
         pass_ints=int(row.pass_ints or 0),
+        rush_attempts=int(row.rush_attempts or 0),
         rush_yards=int(row.rush_yards or 0),
         rush_tds=int(row.rush_tds or 0),
+        targets=int(row.targets or 0),
         receptions=int(row.receptions or 0),
         rec_yards=int(row.rec_yards or 0),
         rec_tds=int(row.rec_tds or 0),
@@ -113,11 +119,14 @@ def _stat_line(row: Any) -> FantasyStatLine:
 def _sum_stat_columns() -> list[Any]:
     g = PlayerGameStat
     return [
+        cast(func.sum(_z(g.pass_attempts)), Integer).label("pass_attempts"),
         cast(func.sum(_z(g.pass_yards)), Integer).label("pass_yards"),
         cast(func.sum(_z(g.pass_tds)), Integer).label("pass_tds"),
         cast(func.sum(_z(g.pass_ints)), Integer).label("pass_ints"),
+        cast(func.sum(_z(g.rush_attempts)), Integer).label("rush_attempts"),
         cast(func.sum(_z(g.rush_yards)), Integer).label("rush_yards"),
         cast(func.sum(_z(g.rush_tds)), Integer).label("rush_tds"),
+        cast(func.sum(_z(g.targets)), Integer).label("targets"),
         cast(func.sum(_z(g.receptions)), Integer).label("receptions"),
         cast(func.sum(_z(g.rec_yards)), Integer).label("rec_yards"),
         cast(func.sum(_z(g.rec_tds)), Integer).label("rec_tds"),

@@ -8,11 +8,14 @@ export type FantasySort =
   | "games"
   | "name"
   | "td"
+  | "pass_attempts"
   | "pass_yards"
   | "pass_tds"
   | "pass_ints"
+  | "rush_attempts"
   | "rush_yards"
   | "rush_tds"
+  | "targets"
   | "receptions"
   | "rec_yards"
   | "rec_tds";
@@ -28,11 +31,14 @@ export const SCORING_LABELS: Record<Scoring, string> = {
 export const POSITIONS: FantasyPosition[] = ["ALL", "QB", "RB", "WR", "TE", "FLEX"];
 
 export type FantasyStatLine = {
+  pass_attempts: number;
   pass_yards: number;
   pass_tds: number;
   pass_ints: number;
+  rush_attempts: number;
   rush_yards: number;
   rush_tds: number;
+  targets: number;
   receptions: number;
   rec_yards: number;
   rec_tds: number;
