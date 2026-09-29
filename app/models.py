@@ -313,6 +313,81 @@ class PlayerGameStat(Base):
     )
 
 
+class TeamGameStat(Base):
+    """
+    Team-level box score for one team's one game (one row per team per
+    game_id, so a game has two rows). Source: nflverse's stats_team_week_YYYY
+    feed (see scripts/ingest_team_stats.py) -- a subset, same "drawer" philosophy
+    as PlayerGameStat, not the full ~140-column raw feed (drops per-kick/punt
+    trivia like fg_made_list that neither the Elo model nor a stats page needs).
+
+    A team's own passing_epa + rushing_epa here is also, from the opponent's
+    row for the same game_id, exactly what that opponent's defense allowed --
+    scripts/build_elo_ratings.py uses that to build an EPA-margin signal
+    without needing separate "defense allowed" columns.
+    """
+    __tablename__ = "team_game_stat"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+
+    season: Mapped[int] = mapped_column(Integer, index=True)
+    week: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    season_type: Mapped[str | None] = mapped_column(String(8), nullable=True)  # REG / POST etc
+
+    game_id: Mapped[str] = mapped_column(String(32), index=True)
+    team: Mapped[str] = mapped_column(String(8), index=True)
+    opponent_team: Mapped[str | None] = mapped_column(String(8), nullable=True)
+
+    # Passing
+    completions: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    attempts: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    passing_yards: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    passing_tds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    passing_interceptions: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    passing_epa: Mapped[float | None] = mapped_column(Float, nullable=True)
+    passing_cpoe: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    # Rushing
+    carries: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    rushing_yards: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    rushing_tds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    rushing_epa: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    # Receiving
+    receptions: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    targets: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    receiving_yards: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    receiving_tds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    receiving_epa: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    # Ball security (turnovers given away)
+    sack_fumbles_lost: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    rushing_fumbles_lost: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    receiving_fumbles_lost: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    # Defense (splash + basics -- what this team's D produced, not allowed)
+    def_tackles_for_loss: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    def_fumbles_forced: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    def_sacks: Mapped[float | None] = mapped_column(Float, nullable=True)
+    def_qb_hits: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    def_interceptions: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    def_tds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    # Special teams / discipline
+    fg_made: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    fg_att: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    pat_made: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    pat_att: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    penalties: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    penalty_yards: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("game_id", "team", name="uq_team_game"),
+        Index("ix_tgs_season_week", "season", "week"),
+        Index("ix_tgs_team_season", "team", "season"),
+    )
+
+
 class OLSeasonStat(Base):
     """Season-level OL blocking stats from PFF."""
     __tablename__ = "ol_season_stat"

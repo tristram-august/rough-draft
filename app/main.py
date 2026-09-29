@@ -17,6 +17,7 @@ from app.api_post_social import router as post_social_router
 from app.api_predictions import router as predictions_router
 from app.api_power import router as power_router
 from app.api_schedule import router as schedule_router
+from app.api_teams import router as teams_router
 from app.limiter import limiter
 from app.settings import settings
 
@@ -50,4 +51,5 @@ def create_app() -> FastAPI:
     app.include_router(predictions_router, prefix="/api")
     app.include_router(post_social_router, prefix="/api")
     app.include_router(injuries_router, prefix="/api")
+    app.include_router(teams_router, prefix="/api")
     return app

@@ -691,3 +691,39 @@ class NewsFeedOut(BaseModel):
     stale: bool = False   # served from cache after an upstream failure
     source: str = "ESPN, PFT"
 
+
+# ── Team stats ────────────────────────────────────────────────────────────────
+
+class TeamStatRow(BaseModel):
+    team: str
+    team_name: str | None = None
+    games: int
+
+    off_plays: int
+    off_epa: float
+    off_epa_per_play: float | None = None
+    points_for: int
+    pass_yards: int
+    pass_tds: int
+    rush_yards: int
+    rush_tds: int
+    giveaways: int
+
+    def_plays_faced: int
+    def_epa_allowed: float
+    def_epa_per_play_allowed: float | None = None
+    points_against: int
+    def_sacks: float
+    def_interceptions: int
+    takeaways: int
+
+    turnover_margin: int
+
+
+class TeamStatsOut(BaseModel):
+    season: int
+    week: int | None = None  # None = full season
+    season_type: str
+    total: int
+    rows: list[TeamStatRow]
+

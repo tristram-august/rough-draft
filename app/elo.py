@@ -37,6 +37,10 @@ class GameResult(NamedTuple):
     away_team: str
     home_score: int | None
     away_score: int | None
+    # home team's total offensive EPA (passing + rushing) minus away's, this
+    # game -- from team_game_stat, via build_elo_ratings.py. None when that
+    # data isn't available for the game (pre-1999, or not yet ingested).
+    home_epa_margin: float | None = None
 
 
 @dataclass
@@ -64,11 +68,19 @@ def _mov_multiplier(margin: int, elo_diff_winner: float) -> float:
 
 
 def run_elo(
-    games: Iterable[GameResult], k: float, home_field_advantage: float
+    games: Iterable[GameResult], k: float, home_field_advantage: float, epa_scale: float = 0.0
 ) -> tuple[dict[str, float], list[Prediction]]:
     """Processes games in the order given, which must already be chronological
     (season, then date within season). Returns each team's rating as of the
-    last game in the list, and one Prediction per game."""
+    last game in the list, and one Prediction per game.
+
+    epa_scale (default 0, i.e. today's plain score-margin Elo, unchanged)
+    blends each game's EPA margin into the point margin the MOV multiplier
+    sees, from the *winner's* perspective: a win where the winner also
+    outgained the loser on EPA gets amplified, a "lucky" win where the loser
+    actually out-EPA'd the winner gets dampened. scripts/build_elo_ratings.py
+    grid-searches this alongside K/HFA and only keeps it if it actually beats
+    epa_scale=0 on the same out-of-sample backtest."""
     ratings: dict[str, float] = {}
     season_seen: dict[str, int] = {}
     predictions: list[Prediction] = []
@@ -109,7 +121,13 @@ def run_elo(
             if home_won
             else away_pre - (home_pre + home_field_advantage)
         )
-        k_eff = k * _mov_multiplier(margin, max(winner_diff, 0.0))
+
+        effective_margin = margin
+        if epa_scale and g.home_epa_margin is not None:
+            epa_margin_for_winner = g.home_epa_margin if home_won else -g.home_epa_margin
+            effective_margin = max(margin + epa_scale * epa_margin_for_winner, 0.0)
+
+        k_eff = k * _mov_multiplier(effective_margin, max(winner_diff, 0.0))
         delta = k_eff * (actual - prob_home)
 
         ratings[g.home_team] = home_pre + delta
