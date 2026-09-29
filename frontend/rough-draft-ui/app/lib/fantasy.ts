@@ -179,3 +179,33 @@ export function fetchFantasyPlayer(gsisId: string, scoring: Scoring, season?: nu
   if (season != null) q.set("season", String(season));
   return getJson<FantasyPlayer>(`/fantasy/player/${encodeURIComponent(gsisId)}?${q}`);
 }
+
+// ── Projection vs. actual (boom/bust) ────────────────────────────────────────
+
+export type ProjectionDiffRow = {
+  gsis_id: string;
+  name: string;
+  position: string;
+  team: string | null;
+  opponent: string | null;
+  is_home: boolean | null;
+  projected: number;
+  actual: number;
+  diff: number;
+};
+
+export type ProjectionDiff = {
+  season: number;
+  week: number;
+  scoring: Scoring;
+  rows: ProjectionDiffRow[];
+};
+
+export function fetchProjectionDiff(params: { season: number; week: number; scoring?: Scoring }) {
+  const q = new URLSearchParams({
+    season: String(params.season),
+    week: String(params.week),
+    scoring: params.scoring ?? "ppr",
+  });
+  return getJson<ProjectionDiff>(`/fantasy/projection-diff?${q}`);
+}

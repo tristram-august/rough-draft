@@ -12,5 +12,8 @@ alembic_version.txt
 # Local data (do not commit)
 data/
 
+# Rendered social carousel slides (scripts/render_social_slides.py)
+output/
+
 # Local agent/editor config
 .claude/

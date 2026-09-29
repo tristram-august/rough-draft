@@ -31,6 +31,8 @@ from app.schemas import (
     FantasyStatLine,
     PlayerProjectionRow,
     PlayerProjectionsOut,
+    ProjectionDiffOut,
+    ProjectionDiffRow,
 )
 
 router = APIRouter(tags=["fantasy"])
@@ -114,6 +116,36 @@ def _stat_line(row: Any) -> FantasyStatLine:
         rec_tds=int(row.rec_tds or 0),
         fumbles_lost=int(row.fumbles_lost or 0),
     )
+
+
+async def _opponent_map(
+    session: AsyncSession, season: int, week: int, teams: set[str]
+) -> tuple[dict[str, str], dict[str, bool]]:
+    """Opponent (and home/away) per team for one week, from the schedule --
+    neither FantasyPros' projections nor a fantasy-points aggregate carries
+    this. A team on a bye that week has no game row and is left out of both
+    maps."""
+    opponent_by_team: dict[str, str] = {}
+    is_home_by_team: dict[str, bool] = {}
+    if not teams:
+        return opponent_by_team, is_home_by_team
+    game_rows = (
+        await session.execute(
+            select(Game.home_team, Game.away_team).where(
+                Game.season == season,
+                Game.week == week,
+                or_(Game.home_team.in_(teams), Game.away_team.in_(teams)),
+            )
+        )
+    ).all()
+    for home, away in game_rows:
+        if home in teams:
+            opponent_by_team[home] = away
+            is_home_by_team[home] = True
+        if away in teams:
+            opponent_by_team[away] = home
+            is_home_by_team[away] = False
+    return opponent_by_team, is_home_by_team
 
 
 def _sum_stat_columns() -> list[Any]:
@@ -263,26 +295,10 @@ async def fantasy_projections(
     ).scalars().all()
 
     # FantasyPros' projections payload has no opponent field -- derive it from
-    # the schedule instead. Not applicable to ROS (no single opponent) or a
-    # team on a bye that week (no game row, opponent stays null).
+    # the schedule instead. Not applicable to ROS (no single opponent).
     opponent_by_team: dict[str, str] = {}
     if week_value is not None:
-        teams = {r.team for r in rows if r.team}
-        if teams:
-            game_rows = (
-                await session.execute(
-                    select(Game.home_team, Game.away_team).where(
-                        Game.season == season,
-                        Game.week == week_value,
-                        or_(Game.home_team.in_(teams), Game.away_team.in_(teams)),
-                    )
-                )
-            ).all()
-            for home, away in game_rows:
-                if home in teams:
-                    opponent_by_team[home] = away
-                if away in teams:
-                    opponent_by_team[away] = home
+        opponent_by_team, _ = await _opponent_map(session, season, week_value, {r.team for r in rows if r.team})
 
     return PlayerProjectionsOut(
         season=season,
@@ -304,6 +320,72 @@ async def fantasy_projections(
             for r in rows
         ],
     )
+
+
+@router.get("/fantasy/projection-diff", response_model=ProjectionDiffOut)
+async def fantasy_projection_diff(
+    season: int = Query(...),
+    week: int = Query(..., ge=0, le=18),
+    scoring: str = Query(default="ppr"),
+    session: AsyncSession = Depends(db_session),
+) -> ProjectionDiffOut:
+    """Projected vs. actual fantasy points for one week, for every player with
+    both a FantasyPros projection and a game-stat line that week -- the "boom
+    or bust" list. Sorted by the gap, biggest overperformance first."""
+    reception_points = _reception_points(scoring)
+    g = PlayerGameStat
+    points = _points_expr(reception_points)
+
+    actual_sub = (
+        select(
+            g.player_gsis_id.label("gsis_id"),
+            func.sum(points).label("actual_points"),
+        )
+        .where(g.season == season, g.week == week)
+        .group_by(g.player_gsis_id)
+        .subquery()
+    )
+
+    points_col = {"ppr": PlayerProjection.points_ppr, "half": PlayerProjection.points_half, "std": PlayerProjection.points}[scoring]
+
+    stmt = (
+        select(
+            PlayerProjection.gsis_id,
+            PlayerProjection.player_name,
+            PlayerProjection.position,
+            PlayerProjection.team,
+            points_col.label("projected"),
+            actual_sub.c.actual_points,
+        )
+        .join(actual_sub, actual_sub.c.gsis_id == PlayerProjection.gsis_id)
+        .where(
+            PlayerProjection.season == season,
+            PlayerProjection.week == week,
+            PlayerProjection.gsis_id.is_not(None),
+            points_col.is_not(None),
+        )
+    )
+    rows = (await session.execute(stmt)).all()
+
+    opponent_by_team, is_home_by_team = await _opponent_map(session, season, week, {r.team for r in rows if r.team})
+
+    out_rows = [
+        ProjectionDiffRow(
+            gsis_id=r.gsis_id,
+            name=r.player_name,
+            position=r.position,
+            team=r.team,
+            opponent=opponent_by_team.get(r.team) if r.team else None,
+            is_home=is_home_by_team.get(r.team) if r.team else None,
+            projected=round(float(r.projected), 1),
+            actual=round(float(r.actual_points or 0), 1),
+            diff=round(float(r.actual_points or 0) - float(r.projected), 1),
+        )
+        for r in rows
+    ]
+    out_rows.sort(key=lambda r: r.diff, reverse=True)
+
+    return ProjectionDiffOut(season=season, week=week, scoring=scoring, rows=out_rows)  # type: ignore[arg-type]
 
 
 @router.get("/players/compare", response_model=ComparePlayersOut)

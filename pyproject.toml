@@ -20,5 +20,9 @@ dependencies = [
   "aiosmtplib>=3.0",
 ]
 
+[project.optional-dependencies]
+# scripts/render_social_slides.py only -- not needed by the API itself.
+social = ["playwright>=1.45"]
+
 [tool.uvicorn]
 factory = true
