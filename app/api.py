@@ -705,11 +705,14 @@ async def _aggregate_totals(session: AsyncSession, gsis_id: str, clause: Any) ->
 
 async def _best_season(session: AsyncSession, gsis_id: str, clause: Any, pos_bucket: str) -> dict[str, Any] | None:
     # Metric per position bucket:
-    # QB: sum(passing_epa)
+    # QB: avg(passing_epa) per game -- NOT sum: summing rewards a bad QB for
+    # playing fewer games (a 4-game season can out-"total" a 15-game one
+    # despite being worse per snap), which crowned some genuinely awful
+    # short seasons "best". Per-game average isn't fooled by that.
     # RB: sum(rush_yards)
     # REC: sum(targets)
     # DEF: splash index
-    qb_metric = func.coalesce(func.sum(PlayerGameStat.passing_epa), 0.0)
+    qb_metric = func.coalesce(func.avg(PlayerGameStat.passing_epa), 0.0)
     rb_metric = func.coalesce(func.sum(PlayerGameStat.rush_yards), 0)
     rec_metric = func.coalesce(func.sum(PlayerGameStat.targets), 0)
     def_metric = (
@@ -740,6 +743,7 @@ async def _best_season(session: AsyncSession, gsis_id: str, clause: Any, pos_buc
             func.coalesce(func.sum(PlayerGameStat.pass_yards), 0).label("pass_yds"),
             func.coalesce(func.sum(PlayerGameStat.pass_tds), 0).label("pass_td"),
             func.coalesce(func.sum(PlayerGameStat.pass_ints), 0).label("pass_int"),
+            func.coalesce(func.avg(PlayerGameStat.passing_epa), 0.0).label("avg_epa"),
         )
         .where(PlayerGameStat.player_gsis_id == gsis_id, clause)
         .group_by(PlayerGameStat.season)
@@ -758,8 +762,17 @@ async def _best_season(session: AsyncSession, gsis_id: str, clause: Any, pos_buc
         headline = f"{season} — {_safe_int(row.rush_yds)} rush yds, {_safe_int(row.rush_td)} TD"
         metrics = {"rush_yards": _safe_int(row.rush_yds), "rush_tds": _safe_int(row.rush_td)}
     elif pos_bucket == "QB":
-        headline = f"{season} — {_safe_int(row.pass_yds)} pass yds, {_safe_int(row.pass_td)} TD, {_safe_int(row.pass_int)} INT"
-        metrics = {"pass_yards": _safe_int(row.pass_yds), "pass_tds": _safe_int(row.pass_td), "pass_ints": _safe_int(row.pass_int)}
+        avg_epa = _safe_float(row.avg_epa)
+        headline = (
+            f"{season} — {_safe_int(row.pass_yds)} pass yds, {_safe_int(row.pass_td)} TD, "
+            f"{_safe_int(row.pass_int)} INT ({avg_epa:+.1f} EPA/gm)"
+        )
+        metrics = {
+            "pass_yards": _safe_int(row.pass_yds),
+            "pass_tds": _safe_int(row.pass_td),
+            "pass_ints": _safe_int(row.pass_int),
+            "avg_passing_epa": round(avg_epa, 1),
+        }
     else:
         headline = f"{season} — best season"
         metrics = {"metric": float(row.metric)}
