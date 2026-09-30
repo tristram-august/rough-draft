@@ -458,6 +458,25 @@ class PlayerProjectionsOut(BaseModel):
     rows: list[PlayerProjectionRow]
 
 
+class ProjectionDiffRow(BaseModel):
+    gsis_id: str | None = None
+    name: str
+    position: str
+    team: str | None = None
+    opponent: str | None = None
+    is_home: bool | None = None
+    projected: float
+    actual: float
+    diff: float
+
+
+class ProjectionDiffOut(BaseModel):
+    season: int
+    week: int
+    scoring: str
+    rows: list[ProjectionDiffRow]
+
+
 # ── Player comparison (live FantasyPros proxy) ───────────────────────────────
 
 class CompareExpertRank(BaseModel):
