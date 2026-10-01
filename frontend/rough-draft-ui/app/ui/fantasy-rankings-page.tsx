@@ -2,11 +2,17 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { PageHeader } from "./page-header";
 import { Segmented } from "./segmented";
 import { FantasyBoard } from "./fantasy-board";
-import { ProjectionsTable } from "./projections-table";
+import {
+  ProjectionsTable,
+  PROJECTION_POSITIONS,
+  type ProjectionMode,
+  type ProjectionPosition,
+} from "./projections-table";
 import { CompareTool } from "./compare-tool";
 import {
   POSITIONS,
@@ -151,19 +157,76 @@ export default function FantasyRankingsPage({
   initialBoardSeasons?: number[];
   initialProductionSeasons?: number[];
 } = {}) {
-  // Projections, not Board, is the default landing tab — once a season's
-  // underway, "here's the preseason board" is a worse first view than
-  // "here's who's projected to score this week." Board stays reachable for
-  // whichever seasons have one, it's just not what you land on anymore.
-  const [tab, setTab] = React.useState<"board" | "leaderboard" | "projections" | "compare">("projections");
-  const [season, setSeason] = React.useState<number | null>(null);
-  const [week, setWeek] = React.useState<number | null>(null);
-  const [position, setPosition] = React.useState<FantasyPosition>("ALL");
-  const [scoring, setScoring] = React.useState<Scoring>("ppr");
+  const router = useRouter();
+  const pathname = usePathname();
+  // Read once on mount so a return trip from a player page (which pushes
+  // this same state into the URL below) lands back where you left off,
+  // instead of resetting to the defaults every time the page remounts.
+  const searchParams = useSearchParams();
+  const initial = React.useRef(searchParams).current;
+
+  const TABS = ["board", "leaderboard", "projections", "compare"] as const;
+  const initialTab = TABS.includes(initial.get("tab") as any)
+    ? (initial.get("tab") as (typeof TABS)[number])
+    : "projections"; // once a season's underway, "what's projected this week" beats "the preseason board."
+  const initialScoring = (["ppr", "half", "std"] as const).includes(initial.get("scoring") as any)
+    ? (initial.get("scoring") as Scoring)
+    : "ppr";
+  const initialWeek = initial.get("week") ? Number(initial.get("week")) : null;
+  const initialSeason = initial.get("season") ? Number(initial.get("season")) : null;
+  const initialPosition = (POSITIONS as readonly string[]).includes(initial.get("position") ?? "")
+    ? (initial.get("position") as FantasyPosition)
+    : "ALL";
+  const initialSort = (initial.get("sort") as FantasySort | null) ?? null;
+  const initialDirection = initial.get("dir") === "asc" ? "asc" : "desc";
+
+  // Projections tab's own filters, prefixed (p-) so they don't collide with
+  // the Leaderboard tab's week/position in the same URL. Owned here rather
+  // than inside ProjectionsTable so there's a single writer of the URL.
+  const initialProjMode = initial.get("pmode") === "ros" ? "ros" : "week";
+  const initialProjWeek = initial.get("pweek") ? Number(initial.get("pweek")) : null;
+  const initialProjPosition = (PROJECTION_POSITIONS as readonly string[]).includes(
+    initial.get("pposition") ?? ""
+  )
+    ? (initial.get("pposition") as ProjectionPosition)
+    : "ALL";
+
+  const [tab, setTab] = React.useState<"board" | "leaderboard" | "projections" | "compare">(initialTab);
+  const [season, setSeason] = React.useState<number | null>(initialSeason);
+  const [week, setWeek] = React.useState<number | null>(initialWeek);
+  const [position, setPosition] = React.useState<FantasyPosition>(initialPosition);
+  const [scoring, setScoring] = React.useState<Scoring>(initialScoring);
 
   // null = no explicit sort; falls back to the default ordering.
-  const [sort, setSort] = React.useState<FantasySort | null>(null);
-  const [direction, setDirection] = React.useState<SortDirection>("desc");
+  const [sort, setSort] = React.useState<FantasySort | null>(initialSort);
+  const [direction, setDirection] = React.useState<SortDirection>(initialDirection);
+
+  const [projMode, setProjMode] = React.useState<ProjectionMode>(initialProjMode);
+  const [projWeek, setProjWeek] = React.useState<number | null>(initialProjWeek);
+  const [projPosition, setProjPosition] = React.useState<ProjectionPosition>(initialProjPosition);
+
+  // Mirror all the filters into the URL — a single writer covering every
+  // tab's state — so a trip to a player page and back (or a page refresh)
+  // restores this exact view instead of resetting to the defaults.
+  React.useEffect(() => {
+    const params = new URLSearchParams();
+    params.set("tab", tab);
+    if (season != null) params.set("season", String(season));
+    if (tab === "leaderboard" && week != null) params.set("week", String(week));
+    if (tab === "leaderboard" && position !== "ALL") params.set("position", position);
+    if (tab === "leaderboard") params.set("scoring", scoring);
+    if (tab === "leaderboard" && sort != null) {
+      params.set("sort", sort);
+      params.set("dir", direction);
+    }
+    if (tab === "projections") {
+      params.set("pmode", projMode);
+      if (projMode === "week" && projWeek != null) params.set("pweek", String(projWeek));
+      if (projPosition !== "ALL") params.set("pposition", projPosition);
+    }
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, season, week, position, scoring, sort, direction, projMode, projWeek, projPosition]);
 
   const effectiveSort = sort ?? DEFAULT_SORT;
   const effectiveDirection: SortDirection = sort === null ? "desc" : direction;
@@ -325,7 +388,17 @@ export default function FantasyRankingsPage({
         )
       )}
 
-      {tab === "projections" && activeSeason != null && <ProjectionsTable season={activeSeason} />}
+      {tab === "projections" && activeSeason != null && (
+        <ProjectionsTable
+          season={activeSeason}
+          mode={projMode}
+          onModeChange={setProjMode}
+          week={projWeek}
+          onWeekChange={setProjWeek}
+          position={projPosition}
+          onPositionChange={setProjPosition}
+        />
+      )}
 
       {tab === "compare" && (
         boardAvailable && activeSeason != null ? (

@@ -18,14 +18,32 @@ const POSITION_COLORS: Record<string, string> = {
 // FantasyPros' own projections cover K/DST too, unlike the computed
 // Leaderboard scoring, so this filter is a superset of ../lib/fantasy's
 // POSITIONS.
-const PROJECTION_POSITIONS = ["ALL", "QB", "RB", "WR", "TE", "FLEX", "K", "DST"] as const;
-type ProjectionPosition = (typeof PROJECTION_POSITIONS)[number];
+export const PROJECTION_POSITIONS = ["ALL", "QB", "RB", "WR", "TE", "FLEX", "K", "DST"] as const;
+export type ProjectionPosition = (typeof PROJECTION_POSITIONS)[number];
+export type ProjectionMode = "week" | "ros";
 
-export function ProjectionsTable({ season }: { season: number }) {
-  const [mode, setMode] = React.useState<"week" | "ros">("week");
-  const [week, setWeek] = React.useState<number | null>(null);
-  const [position, setPosition] = React.useState<ProjectionPosition>("ALL");
-
+// mode/week/position are owned by the parent (FantasyRankingsPage) and
+// mirrored into the URL there — a single writer, instead of this component
+// also calling router.replace independently. Two components independently
+// reading-then-writing window.location.search race each other, since
+// Next's router.replace doesn't apply to window.location synchronously.
+export function ProjectionsTable({
+  season,
+  mode,
+  onModeChange,
+  week,
+  onWeekChange,
+  position,
+  onPositionChange,
+}: {
+  season: number;
+  mode: ProjectionMode;
+  onModeChange: (mode: ProjectionMode) => void;
+  week: number | null;
+  onWeekChange: (week: number | null) => void;
+  position: ProjectionPosition;
+  onPositionChange: (position: ProjectionPosition) => void;
+}) {
   const weeksQuery = useQuery({
     queryKey: ["projection-weeks", season],
     queryFn: () => fetchProjectionWeeks(season),
@@ -50,9 +68,23 @@ export function ProjectionsTable({ season }: { season: number }) {
   const rows = data?.rows ?? [];
   const weekAvailable = selectedWeek != null;
 
-  // A stale week from a previously-viewed season shouldn't carry over.
+  // A stale week from a previously-viewed season shouldn't carry over — but
+  // only reset once `season` has actually *changed* from what it was last
+  // time this ran, not merely "isn't the first render." A boolean
+  // didMount-style ref breaks under React 18 Strict Mode's dev-only double
+  // effect invocation: the first invoke flips it true and skips (correct),
+  // but the second (Strict Mode's replay of that same mount) then sees
+  // `true` and misreads itself as a real subsequent change, firing the
+  // reset and clobbering the week just restored from the URL. Comparing
+  // against the previous *value* instead stays idempotent across however
+  // many times Strict Mode replays the same mount.
+  const prevSeason = React.useRef(season);
   React.useEffect(() => {
-    setWeek(null);
+    if (prevSeason.current !== season) {
+      prevSeason.current = season;
+      onWeekChange(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [season]);
 
   if (isError) {
@@ -69,7 +101,7 @@ export function ProjectionsTable({ season }: { season: number }) {
         <Segmented
           ariaLabel="Projection range"
           value={mode}
-          onChange={(v) => setMode(v as "week" | "ros")}
+          onChange={(v) => onModeChange(v as ProjectionMode)}
           options={[
             { value: "week", label: weekAvailable ? `Week ${selectedWeek}` : "This week" },
             { value: "ros", label: "Rest of season" },
@@ -79,7 +111,7 @@ export function ProjectionsTable({ season }: { season: number }) {
           <select
             aria-label="Week"
             value={selectedWeek ?? ""}
-            onChange={(e) => setWeek(e.target.value === "" ? null : Number(e.target.value))}
+            onChange={(e) => onWeekChange(e.target.value === "" ? null : Number(e.target.value))}
             className="rounded-xl border border-slate-800 bg-slate-900/40 px-3 py-1.5 text-xs font-medium text-slate-300 outline-none transition-colors focus:border-slate-600"
           >
             {weeks.map((w) => (
@@ -92,7 +124,7 @@ export function ProjectionsTable({ season }: { season: number }) {
         <Segmented
           ariaLabel="Position"
           value={position}
-          onChange={setPosition}
+          onChange={onPositionChange}
           options={PROJECTION_POSITIONS.map((p) => ({ value: p, label: p === "ALL" ? "All" : p }))}
         />
         {data && (

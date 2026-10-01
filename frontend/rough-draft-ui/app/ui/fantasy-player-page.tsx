@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Segmented } from "./segmented";
 import {
@@ -48,6 +48,7 @@ export default function FantasyPlayerPage({
   initialSeason?: number | null;
   initialScoring?: Scoring;
 }) {
+  const router = useRouter();
   const [scoring, setScoring] = React.useState<Scoring>(initialScoring ?? "ppr");
   const [season, setSeason] = React.useState<number | null>(initialSeason ?? null);
 
@@ -80,12 +81,21 @@ export default function FantasyPlayerPage({
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
-      <Link
-        href="/fantasy"
+      <button
+        type="button"
+        onClick={() => {
+          // Browser history, not a plain link to /fantasy: the rankings
+          // page mirrors its tab/week/scoring/sort into the URL as you use
+          // it, so going back restores that exact view instead of resetting
+          // to the defaults. Falls back to a fresh /fantasy if this page
+          // was opened directly (no app history to return to).
+          if (window.history.length > 1) router.back();
+          else router.push("/fantasy");
+        }}
         className="text-xs font-medium text-slate-500 transition-colors hover:text-slate-300"
       >
         <span aria-hidden>←</span> Fantasy rankings
-      </Link>
+      </button>
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-4">
