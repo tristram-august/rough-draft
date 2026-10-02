@@ -38,9 +38,28 @@ export function CompareTool({ season }: { season: number }) {
     queryKey: ["compare", ids, cmpPosition],
     queryFn: () => fetchCompare(ids, cmpPosition as string),
     enabled: false,
+    // A 502/400 here is a deterministic failure from our own backend, not a
+    // flaky network blip -- the default 3 retries (with ~1s/2s/4s backoff)
+    // just means up to ~7s of total silence before any error ever shows,
+    // which is its own "looks like nothing happened" bug.
+    retry: false,
   });
 
   const canCompare = ids.length >= 2 && ids.length <= 4 && cmpPosition != null;
+
+  // The board below is ~500 rows -- if results only rendered after it (as
+  // they used to), clicking Compare from partway down that list put the
+  // result table thousands of pixels below the sticky bar, completely out
+  // of view. Nothing visibly changed, so it looked like the button did
+  // nothing even when the data had loaded fine. Results now render right
+  // here, above the board, and this scrolls them into view as a safety net
+  // for whatever scroll position you clicked Compare from.
+  const resultsRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    if (compareQuery.data) {
+      resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [compareQuery.data]);
 
   return (
     <div className="space-y-4">
@@ -54,16 +73,9 @@ export function CompareTool({ season }: { season: number }) {
         )}
       </div>
 
-      <FantasyBoard
-        season={season}
-        selectable
-        selectedIds={selected}
-        onToggleSelect={toggle}
-        restrictToPosition={cmpPosition}
-        maxSelected={4}
-      />
-
-      <div className="sticky bottom-4 flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950/95 px-4 py-3 shadow-lg backdrop-blur">
+      {/* top-20 clears the site's own sticky nav header (top-0 z-30) instead
+          of sliding underneath it. */}
+      <div className="sticky top-20 z-10 flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950/95 px-4 py-3 shadow-lg backdrop-blur">
         <span className="text-sm text-slate-300">
           Compare Selected ({ids.length}/4)
         </span>
@@ -81,7 +93,7 @@ export function CompareTool({ season }: { season: number }) {
       </div>
 
       {compareQuery.data && (
-        <div className="overflow-x-auto rounded-3xl border border-slate-800">
+        <div ref={resultsRef} className="overflow-x-auto rounded-3xl border border-slate-800 scroll-mt-20">
           <table className="w-full border-collapse text-sm">
             <thead className="bg-slate-900/60">
               <tr className="text-xs uppercase tracking-wide text-slate-500">
@@ -127,6 +139,15 @@ export function CompareTool({ season }: { season: number }) {
           </p>
         </div>
       )}
+
+      <FantasyBoard
+        season={season}
+        selectable
+        selectedIds={selected}
+        onToggleSelect={toggle}
+        restrictToPosition={cmpPosition}
+        maxSelected={4}
+      />
     </div>
   );
 }
