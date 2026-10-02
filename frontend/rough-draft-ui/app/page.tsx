@@ -43,10 +43,6 @@ export default async function Page() {
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
           Rough Draft <span className="font-light text-slate-500">Football</span>
         </h1>
-        <p className="mt-1.5 text-sm text-slate-400">
-          Draft picks re-graded with hindsight, fantasy production from real games, and
-          whatever the league is arguing about today.
-        </p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
