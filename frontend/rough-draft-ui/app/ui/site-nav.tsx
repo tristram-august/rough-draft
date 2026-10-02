@@ -6,11 +6,11 @@ import { usePathname } from "next/navigation";
 // The dashboard at "/" is the writing surface now, so /blog is an archive
 // rather than a top-level section. Its routes stay — post permalinks live there.
 export const NAV_ITEMS = [
+  { href: "/fantasy", label: "Fantasy" },
+  { href: "/teams", label: "Team Stats" },
+  { href: "/draft", label: "Rough Draft" },
   { href: "/picks", label: "Picks" },
   { href: "/power", label: "Power Rankings" },
-  { href: "/draft", label: "Rough Draft" },
-  { href: "/teams", label: "Team Stats" },
-  { href: "/fantasy", label: "Fantasy" },
 ] as const;
 
 function isActive(pathname: string, href: string) {
