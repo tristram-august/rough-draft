@@ -7,12 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { PageHeader } from "./page-header";
 import { Segmented } from "./segmented";
 import { FantasyBoard } from "./fantasy-board";
-import {
-  ProjectionsTable,
-  PROJECTION_POSITIONS,
-  type ProjectionMode,
-  type ProjectionPosition,
-} from "./projections-table";
+import { BoomBustTable } from "./boom-bust-table";
 import { CompareTool } from "./compare-tool";
 import {
   POSITIONS,
@@ -165,10 +160,10 @@ export default function FantasyRankingsPage({
   const searchParams = useSearchParams();
   const initial = React.useRef(searchParams).current;
 
-  const TABS = ["board", "leaderboard", "projections", "compare"] as const;
+  const TABS = ["board", "leaderboard", "boom-bust", "compare"] as const;
   const initialTab = TABS.includes(initial.get("tab") as any)
     ? (initial.get("tab") as (typeof TABS)[number])
-    : "projections"; // once a season's underway, "what's projected this week" beats "the preseason board."
+    : "leaderboard";
   const initialScoring = (["ppr", "half", "std"] as const).includes(initial.get("scoring") as any)
     ? (initial.get("scoring") as Scoring)
     : "ppr";
@@ -180,18 +175,16 @@ export default function FantasyRankingsPage({
   const initialSort = (initial.get("sort") as FantasySort | null) ?? null;
   const initialDirection = initial.get("dir") === "asc" ? "asc" : "desc";
 
-  // Projections tab's own filters, prefixed (p-) so they don't collide with
+  // Boom & Bust tab's own filters, prefixed (bb-) so they don't collide with
   // the Leaderboard tab's week/position in the same URL. Owned here rather
-  // than inside ProjectionsTable so there's a single writer of the URL.
-  const initialProjMode = initial.get("pmode") === "ros" ? "ros" : "week";
-  const initialProjWeek = initial.get("pweek") ? Number(initial.get("pweek")) : null;
-  const initialProjPosition = (PROJECTION_POSITIONS as readonly string[]).includes(
-    initial.get("pposition") ?? ""
-  )
-    ? (initial.get("pposition") as ProjectionPosition)
+  // than inside BoomBustTable so there's a single writer of the URL.
+  const initialBBWeek = initial.get("bbweek") ? Number(initial.get("bbweek")) : null;
+  const initialBBPosition = (POSITIONS as readonly string[]).includes(initial.get("bbposition") ?? "")
+    ? (initial.get("bbposition") as FantasyPosition)
     : "ALL";
+  const initialBBDirection = initial.get("bbdir") === "asc" ? "asc" : "desc";
 
-  const [tab, setTab] = React.useState<"board" | "leaderboard" | "projections" | "compare">(initialTab);
+  const [tab, setTab] = React.useState<"board" | "leaderboard" | "boom-bust" | "compare">(initialTab);
   const [season, setSeason] = React.useState<number | null>(initialSeason);
   const [week, setWeek] = React.useState<number | null>(initialWeek);
   const [position, setPosition] = React.useState<FantasyPosition>(initialPosition);
@@ -201,9 +194,9 @@ export default function FantasyRankingsPage({
   const [sort, setSort] = React.useState<FantasySort | null>(initialSort);
   const [direction, setDirection] = React.useState<SortDirection>(initialDirection);
 
-  const [projMode, setProjMode] = React.useState<ProjectionMode>(initialProjMode);
-  const [projWeek, setProjWeek] = React.useState<number | null>(initialProjWeek);
-  const [projPosition, setProjPosition] = React.useState<ProjectionPosition>(initialProjPosition);
+  const [bbWeek, setBBWeek] = React.useState<number | null>(initialBBWeek);
+  const [bbPosition, setBBPosition] = React.useState<FantasyPosition>(initialBBPosition);
+  const [bbDirection, setBBDirection] = React.useState<SortDirection>(initialBBDirection);
 
   // Mirror all the filters into the URL — a single writer covering every
   // tab's state — so a trip to a player page and back (or a page refresh)
@@ -219,14 +212,14 @@ export default function FantasyRankingsPage({
       params.set("sort", sort);
       params.set("dir", direction);
     }
-    if (tab === "projections") {
-      params.set("pmode", projMode);
-      if (projMode === "week" && projWeek != null) params.set("pweek", String(projWeek));
-      if (projPosition !== "ALL") params.set("pposition", projPosition);
+    if (tab === "boom-bust") {
+      if (bbWeek != null) params.set("bbweek", String(bbWeek));
+      if (bbPosition !== "ALL") params.set("bbposition", bbPosition);
+      params.set("bbdir", bbDirection);
     }
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, season, week, position, scoring, sort, direction, projMode, projWeek, projPosition]);
+  }, [tab, season, week, position, scoring, sort, direction, bbWeek, bbPosition, bbDirection]);
 
   const effectiveSort = sort ?? DEFAULT_SORT;
   const effectiveDirection: SortDirection = sort === null ? "desc" : direction;
@@ -265,11 +258,10 @@ export default function FantasyRankingsPage({
     return merged.sort((a, b) => b - a);
   }, [boardSeasons, seasonsQuery.data]);
 
-  // Default to the latest season regardless of tab — Projections (the
-  // default tab) reads this the same as everything else.
+  // Default to the latest season regardless of tab.
   const activeSeason = season ?? seasons[0] ?? null;
   // Availability checks per tab, not a view-selector — season is now a shared
-  // filter across all four tabs (Board/Leaderboard/Projections/Compare), not
+  // filter across all four tabs (Board/Leaderboard/Boom & Bust/Compare), not
   // the thing that decides which one renders.
   const boardAvailable = activeSeason != null && boardSeasons.includes(activeSeason);
   const productionAvailable = activeSeason != null && (seasonsQuery.data?.includes(activeSeason) ?? false);
@@ -325,8 +317,8 @@ export default function FantasyRankingsPage({
             ? `${activeSeason} Draft Board`
             : tab === "leaderboard"
             ? "Production Rankings"
-            : tab === "projections"
-            ? "Projections"
+            : tab === "boom-bust"
+            ? "Boom & Bust"
             : "Compare Players"
         }
         subtitle={
@@ -334,8 +326,8 @@ export default function FantasyRankingsPage({
             ? "Preseason consensus ranks, from before Week 1 kicked off. Switch to Leaderboard to see what actually happened."
             : tab === "leaderboard"
             ? "Fantasy points computed from game-by-game production. Switch scoring to match your league."
-            : tab === "projections"
-            ? "FantasyPros' own weekly and rest-of-season point projections."
+            : tab === "boom-bust"
+            ? "Who beat their FantasyPros projection, who missed it, and by how much."
             : "See how individual experts rank players against each other, live."
         }
       />
@@ -349,7 +341,7 @@ export default function FantasyRankingsPage({
           options={[
             { value: "board", label: "Board" },
             { value: "leaderboard", label: "Leaderboard" },
-            { value: "projections", label: "Projections" },
+            { value: "boom-bust", label: "Boom & Bust" },
             { value: "compare", label: "Compare" },
           ]}
         />
@@ -388,15 +380,16 @@ export default function FantasyRankingsPage({
         )
       )}
 
-      {tab === "projections" && activeSeason != null && (
-        <ProjectionsTable
+      {tab === "boom-bust" && activeSeason != null && (
+        <BoomBustTable
           season={activeSeason}
-          mode={projMode}
-          onModeChange={setProjMode}
-          week={projWeek}
-          onWeekChange={setProjWeek}
-          position={projPosition}
-          onPositionChange={setProjPosition}
+          scoring={scoring}
+          week={bbWeek}
+          onWeekChange={setBBWeek}
+          position={bbPosition}
+          onPositionChange={setBBPosition}
+          direction={bbDirection}
+          onDirectionChange={setBBDirection}
         />
       )}
 
