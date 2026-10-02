@@ -388,12 +388,15 @@ async def fantasy_projection_diff(
     return ProjectionDiffOut(season=season, week=week, scoring=scoring, rows=out_rows)  # type: ignore[arg-type]
 
 
+COMPARE_POSITIONS = {"QB", "RB", "WR", "TE", "K", "DST"}
+
+
 @router.get("/players/compare", response_model=ComparePlayersOut)
 @limiter.limit("20/hour")
 async def compare_players(
     request: Request,
     ids: str = Query(..., description="Comma-separated FantasyPros player IDs, 2-4"),
-    position: str = Query(default="ALL", description="Position filter FantasyPros scores the comparison against"),
+    position: str = Query(..., description="A single position (QB/RB/WR/TE/K/DST) -- required"),
 ) -> ComparePlayersOut:
     try:
         player_ids = [int(x) for x in ids.split(",") if x.strip()]
@@ -401,6 +404,15 @@ async def compare_players(
         raise HTTPException(status_code=400, detail="ids must be comma-separated integers")
     if not 2 <= len(player_ids) <= 4:
         raise HTTPException(status_code=400, detail="Provide 2-4 player IDs")
+    # FantasyPros' compare-players endpoint scopes rankings to one position --
+    # "ALL" isn't a wildcard there, it silently comes back with every ranking
+    # empty (no error), which is what made this endpoint look broken. Fail
+    # loudly instead of repeating that footgun.
+    if position.upper() not in COMPARE_POSITIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"position must be one of {sorted(COMPARE_POSITIONS)} -- FantasyPros' compare API has no 'ALL' option",
+        )
 
     players_param = ":".join(str(i) for i in player_ids)
     try:

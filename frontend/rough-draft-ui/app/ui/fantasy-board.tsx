@@ -53,13 +53,17 @@ export function FantasyBoard({
   selectable = false,
   selectedIds,
   onToggleSelect,
+  restrictToPosition,
   maxSelected = 4,
 }: {
   season: number;
   /** Compare-tool mode: render a checkbox column, rows pick by fantasypros_player_id. */
   selectable?: boolean;
   selectedIds?: Set<number>;
-  onToggleSelect?: (id: number) => void;
+  onToggleSelect?: (id: number, position: string) => void;
+  /** When set, checkboxes for any other position are disabled — FantasyPros'
+   * compare API only returns rankings within a single position. */
+  restrictToPosition?: string | null;
   maxSelected?: number;
 }) {
   const [position, setPosition] = React.useState("ALL");
@@ -141,6 +145,8 @@ export function FantasyBoard({
                 const cmpId = row.fantasypros_player_id;
                 const checked = cmpId != null && (selectedIds?.has(cmpId) ?? false);
                 const atMax = (selectedIds?.size ?? 0) >= maxSelected;
+                const wrongPosition =
+                  restrictToPosition != null && !checked && row.position !== restrictToPosition;
                 return (
                   <React.Fragment key={`${row.overall_rank}-${row.player_name}`}>
                     {startsTier && (
@@ -159,9 +165,15 @@ export function FantasyBoard({
                           <input
                             type="checkbox"
                             checked={checked}
-                            disabled={cmpId == null || (!checked && atMax)}
-                            onChange={() => cmpId != null && onToggleSelect?.(cmpId)}
-                            title={cmpId == null ? "Not available for comparison" : undefined}
+                            disabled={cmpId == null || (!checked && atMax) || wrongPosition}
+                            onChange={() => cmpId != null && onToggleSelect?.(cmpId, row.position)}
+                            title={
+                              cmpId == null
+                                ? "Not available for comparison"
+                                : wrongPosition
+                                ? `Compare works within one position — clear your ${restrictToPosition} picks first`
+                                : undefined
+                            }
                             className="h-3.5 w-3.5 accent-sky-500 disabled:opacity-30"
                           />
                         </td>

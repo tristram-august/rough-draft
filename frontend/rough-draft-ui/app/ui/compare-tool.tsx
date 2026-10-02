@@ -16,12 +16,18 @@ function avgRank(ranks: { rank: string }[] | undefined): number | null {
 
 export function CompareTool({ season }: { season: number }) {
   const [selected, setSelected] = React.useState<Set<number>>(new Set());
+  // FantasyPros' compare API returns rankings scoped to a single position --
+  // position=ALL silently comes back empty (no error), which is why this
+  // tool used to look like it did nothing. Lock selection to one position
+  // once the first player's picked, same as FantasyPros' own compare tool.
+  const [cmpPosition, setCmpPosition] = React.useState<string | null>(null);
 
-  const toggle = React.useCallback((id: number) => {
+  const toggle = React.useCallback((id: number, position: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
+      setCmpPosition(next.size === 0 ? null : position);
       return next;
     });
   }, []);
@@ -29,21 +35,33 @@ export function CompareTool({ season }: { season: number }) {
   const ids = React.useMemo(() => [...selected].sort((a, b) => a - b), [selected]);
 
   const compareQuery = useQuery({
-    queryKey: ["compare", ids],
-    queryFn: () => fetchCompare(ids),
+    queryKey: ["compare", ids, cmpPosition],
+    queryFn: () => fetchCompare(ids, cmpPosition as string),
     enabled: false,
   });
 
-  const canCompare = ids.length >= 2 && ids.length <= 4;
+  const canCompare = ids.length >= 2 && ids.length <= 4 && cmpPosition != null;
 
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border border-slate-800 bg-slate-900/30 px-4 py-3 text-sm text-slate-400">
-        Check 2–4 players on the board below, then compare how individual experts rank each of
-        them.
+        Check 2–4 players <span className="text-slate-300">at the same position</span> below,
+        then compare how individual experts rank each of them.
+        {cmpPosition && (
+          <span className="ml-2 text-xs text-slate-500">
+            Comparing {cmpPosition}s — clear your picks to switch position.
+          </span>
+        )}
       </div>
 
-      <FantasyBoard season={season} selectable selectedIds={selected} onToggleSelect={toggle} maxSelected={4} />
+      <FantasyBoard
+        season={season}
+        selectable
+        selectedIds={selected}
+        onToggleSelect={toggle}
+        restrictToPosition={cmpPosition}
+        maxSelected={4}
+      />
 
       <div className="sticky bottom-4 flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950/95 px-4 py-3 shadow-lg backdrop-blur">
         <span className="text-sm text-slate-300">

@@ -29,6 +29,12 @@ def fetch(path: str, params: dict) -> dict:
     except urllib.error.HTTPError as e:
         body = e.read().decode("utf-8", errors="replace")
         raise SystemExit(f"FantasyPros API error {e.code} on {path}: {body}") from e
+    except urllib.error.URLError as e:
+        # Connection/DNS/TLS failures (e.g. a local SSL-inspecting proxy)
+        # land here, not HTTPError -- without this, callers like the live
+        # /players/compare endpoint surface it as an unhandled 500 instead
+        # of a clean 502.
+        raise SystemExit(f"FantasyPros API connection failed on {path}: {e.reason}") from e
 
 
 def warn_if_capped(resp: dict) -> None:

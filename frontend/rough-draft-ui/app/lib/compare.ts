@@ -22,7 +22,10 @@ export type ComparePlayersResult = {
   experts: Record<string, CompareExpertInfo>;
 };
 
-export function fetchCompare(ids: number[]) {
-  const q = new URLSearchParams({ ids: ids.join(",") });
+// FantasyPros' compare API returns rankings scoped to one position --
+// position=ALL silently comes back with every ranking empty rather than an
+// error, so a real position is required, not just an optional filter.
+export function fetchCompare(ids: number[], position: string) {
+  const q = new URLSearchParams({ ids: ids.join(","), position });
   return getJson<ComparePlayersResult>(`/players/compare?${q}`);
 }
