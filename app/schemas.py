@@ -477,34 +477,6 @@ class ProjectionDiffOut(BaseModel):
     rows: list[ProjectionDiffRow]
 
 
-# ── Player comparison (live FantasyPros proxy) ───────────────────────────────
-
-class CompareExpertRank(BaseModel):
-    expert_id: str
-    rank: str
-
-
-class ComparePlayerInfo(BaseModel):
-    player_name: str
-    player_team_id: str | None = None
-    player_position_id: str | None = None
-    player_page_url: str | None = None
-
-
-class CompareExpertInfo(BaseModel):
-    expert_name: str | None = None
-    expert_display_name: str | None = None
-    expert_source_name: str | None = None
-    expert_twitter_url: str | None = None
-
-
-class ComparePlayersOut(BaseModel):
-    # rankings: scoring type (STD/PPR/HALF) -> player_id (as string) -> per-expert ranks
-    rankings: dict[str, dict[str, list[CompareExpertRank]]]
-    players: dict[str, ComparePlayerInfo]
-    experts: dict[str, CompareExpertInfo]
-
-
 # ── Schedule ──────────────────────────────────────────────────────────────────
 
 class GameOut(BaseModel):

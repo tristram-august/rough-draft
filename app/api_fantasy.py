@@ -5,21 +5,17 @@ database rather than in Python.
 """
 from __future__ import annotations
 
-import asyncio
 import json
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import Float, Integer, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 
 from app.db import db_session
-from app.fantasypros_client import fetch as _fp_fetch
-from app.limiter import limiter
 from app.models import FantasyRank, Game, PlayerDim, PlayerGameStat, PlayerProjection
 from app.schemas import (
-    ComparePlayersOut,
     FantasyBoardOut,
     FantasyBoardRow,
     FantasyGameRow,
@@ -386,56 +382,6 @@ async def fantasy_projection_diff(
     out_rows.sort(key=lambda r: r.diff, reverse=True)
 
     return ProjectionDiffOut(season=season, week=week, scoring=scoring, rows=out_rows)  # type: ignore[arg-type]
-
-
-COMPARE_POSITIONS = {"QB", "RB", "WR", "TE", "K", "DST"}
-
-
-@router.get("/players/compare", response_model=ComparePlayersOut)
-@limiter.limit("20/hour")
-async def compare_players(
-    request: Request,
-    ids: str = Query(..., description="Comma-separated FantasyPros player IDs, 2-4"),
-    position: str = Query(..., description="A single position (QB/RB/WR/TE/K/DST) -- required"),
-) -> ComparePlayersOut:
-    try:
-        player_ids = [int(x) for x in ids.split(",") if x.strip()]
-    except ValueError:
-        raise HTTPException(status_code=400, detail="ids must be comma-separated integers")
-    if not 2 <= len(player_ids) <= 4:
-        raise HTTPException(status_code=400, detail="Provide 2-4 player IDs")
-    # FantasyPros' compare-players endpoint scopes rankings to one position --
-    # "ALL" isn't a wildcard there, it silently comes back with every ranking
-    # empty (no error), which is what made this endpoint look broken. Fail
-    # loudly instead of repeating that footgun.
-    if position.upper() not in COMPARE_POSITIONS:
-        raise HTTPException(
-            status_code=400,
-            detail=f"position must be one of {sorted(COMPARE_POSITIONS)} -- FantasyPros' compare API has no 'ALL' option",
-        )
-
-    players_param = ":".join(str(i) for i in player_ids)
-    try:
-        resp = await asyncio.to_thread(
-            _fp_fetch, "/compare-players", {"players": players_param, "position": position.upper(), "details": "all"}
-        )
-    except SystemExit as e:
-        raise HTTPException(status_code=502, detail=f"FantasyPros compare request failed: {e}")
-
-    # FantasyPros serializes an empty PHP associative array as `[]`, not `{}` --
-    # normalize every "should be a dict" spot so a scoring type or player with
-    # no data doesn't 500 the response instead of just coming back empty.
-    def _as_dict(v: object) -> dict:
-        return v if isinstance(v, dict) else {}
-
-    rankings_raw = _as_dict(resp.get("rankings"))
-    rankings = {scoring: _as_dict(per_player) for scoring, per_player in rankings_raw.items()}
-
-    return ComparePlayersOut(
-        rankings=rankings,
-        players=_as_dict(resp.get("players")),
-        experts=_as_dict(resp.get("experts")),
-    )
 
 
 @router.get("/fantasy/scoring", response_model=list[FantasyScoringPresetOut])

@@ -207,7 +207,9 @@ export default function FantasyRankingsPage({
     if (season != null) params.set("season", String(season));
     if (tab === "leaderboard" && week != null) params.set("week", String(week));
     if (tab === "leaderboard" && position !== "ALL") params.set("position", position);
-    if (tab === "leaderboard") params.set("scoring", scoring);
+    // Scoring is shared by Leaderboard and Compare (both show real fantasy
+    // points), so it's written regardless of which of those two is active.
+    if (tab === "leaderboard" || tab === "compare") params.set("scoring", scoring);
     if (tab === "leaderboard" && sort != null) {
       params.set("sort", sort);
       params.set("dir", direction);
@@ -395,7 +397,7 @@ export default function FantasyRankingsPage({
 
       {tab === "compare" && (
         boardAvailable && activeSeason != null ? (
-          <CompareTool season={activeSeason} />
+          <CompareTool season={activeSeason} scoring={scoring} onScoringChange={setScoring} />
         ) : (
           <p className="text-sm text-slate-500">
             No draft board loaded for {activeSeason} to compare from.
