@@ -321,67 +321,172 @@ async def fantasy_projections(
 @router.get("/fantasy/projection-diff", response_model=ProjectionDiffOut)
 async def fantasy_projection_diff(
     season: int = Query(...),
-    week: int = Query(..., ge=0, le=18),
+    week: int | None = Query(
+        default=None,
+        ge=1,
+        le=18,
+        description="Omit for season-to-date: sums every week with both a projection and a result.",
+    ),
     scoring: str = Query(default="ppr"),
     session: AsyncSession = Depends(db_session),
 ) -> ProjectionDiffOut:
-    """Projected vs. actual fantasy points for one week, for every player with
-    both a FantasyPros projection and a game-stat line that week -- the "boom
-    or bust" list. Sorted by the gap, biggest overperformance first."""
+    """Projected vs. actual fantasy points -- the "boom or bust" list, for
+    every player with both a FantasyPros projection and a game-stat line.
+    One week at a time, or every matched week summed (season-to-date) when
+    `week` is omitted. Sorted by the gap, biggest overperformance first."""
     reception_points = _reception_points(scoring)
     g = PlayerGameStat
     points = _points_expr(reception_points)
-
-    actual_sub = (
-        select(
-            g.player_gsis_id.label("gsis_id"),
-            func.sum(points).label("actual_points"),
-        )
-        .where(g.season == season, g.week == week)
-        .group_by(g.player_gsis_id)
-        .subquery()
-    )
-
     points_col = {"ppr": PlayerProjection.points_ppr, "half": PlayerProjection.points_half, "std": PlayerProjection.points}[scoring]
 
-    stmt = (
-        select(
-            PlayerProjection.gsis_id,
-            PlayerProjection.player_name,
-            PlayerProjection.position,
-            PlayerProjection.team,
-            points_col.label("projected"),
-            actual_sub.c.actual_points,
+    if week is not None:
+        actual_sub = (
+            select(
+                g.player_gsis_id.label("gsis_id"),
+                func.sum(points).label("actual_points"),
+            )
+            .where(g.season == season, g.week == week)
+            .group_by(g.player_gsis_id)
+            .subquery()
         )
-        .join(actual_sub, actual_sub.c.gsis_id == PlayerProjection.gsis_id)
-        .where(
-            PlayerProjection.season == season,
-            PlayerProjection.week == week,
-            PlayerProjection.gsis_id.is_not(None),
-            points_col.is_not(None),
-        )
-    )
-    rows = (await session.execute(stmt)).all()
 
-    opponent_by_team, is_home_by_team = await _opponent_map(session, season, week, {r.team for r in rows if r.team})
-
-    out_rows = [
-        ProjectionDiffRow(
-            gsis_id=r.gsis_id,
-            name=r.player_name,
-            position=r.position,
-            team=r.team,
-            opponent=opponent_by_team.get(r.team) if r.team else None,
-            is_home=is_home_by_team.get(r.team) if r.team else None,
-            projected=round(float(r.projected), 1),
-            actual=round(float(r.actual_points or 0), 1),
-            diff=round(float(r.actual_points or 0) - float(r.projected), 1),
+        stmt = (
+            select(
+                PlayerProjection.gsis_id,
+                PlayerProjection.player_name,
+                PlayerProjection.position,
+                PlayerProjection.team,
+                points_col.label("projected"),
+                actual_sub.c.actual_points,
+            )
+            .join(actual_sub, actual_sub.c.gsis_id == PlayerProjection.gsis_id)
+            .where(
+                PlayerProjection.season == season,
+                PlayerProjection.week == week,
+                PlayerProjection.gsis_id.is_not(None),
+                points_col.is_not(None),
+            )
         )
-        for r in rows
-    ]
+        rows = (await session.execute(stmt)).all()
+
+        opponent_by_team, is_home_by_team = await _opponent_map(session, season, week, {r.team for r in rows if r.team})
+
+        out_rows = [
+            ProjectionDiffRow(
+                gsis_id=r.gsis_id,
+                name=r.player_name,
+                position=r.position,
+                team=r.team,
+                opponent=opponent_by_team.get(r.team) if r.team else None,
+                is_home=is_home_by_team.get(r.team) if r.team else None,
+                projected=round(float(r.projected), 1),
+                actual=round(float(r.actual_points or 0), 1),
+                diff=round(float(r.actual_points or 0) - float(r.projected), 1),
+                games=1,
+            )
+            for r in rows
+        ]
+        weeks_included = [week]
+    else:
+        # Season-to-date: match projection to result per (player, week) --
+        # same join as above, just not pinned to one week -- then sum those
+        # matched weeks per player. A plain sum of all projections joined to
+        # a plain sum of all actuals would let a player's projected-but-DNP
+        # weeks drag their total down without a matching result to show for
+        # it, so the per-week match has to happen before the sum, not after.
+        actual_sub = (
+            select(
+                g.player_gsis_id.label("gsis_id"),
+                g.week.label("week"),
+                func.sum(points).label("actual_points"),
+            )
+            .where(g.season == season, g.week.is_not(None))
+            .group_by(g.player_gsis_id, g.week)
+            .subquery()
+        )
+
+        matched = (
+            select(
+                PlayerProjection.gsis_id.label("gsis_id"),
+                points_col.label("projected"),
+                actual_sub.c.actual_points.label("actual_points"),
+            )
+            .join(
+                actual_sub,
+                (actual_sub.c.gsis_id == PlayerProjection.gsis_id) & (actual_sub.c.week == PlayerProjection.week),
+            )
+            .where(
+                PlayerProjection.season == season,
+                PlayerProjection.gsis_id.is_not(None),
+                points_col.is_not(None),
+            )
+            .subquery()
+        )
+        agg = (
+            select(
+                matched.c.gsis_id,
+                func.sum(matched.c.projected).label("projected"),
+                func.sum(matched.c.actual_points).label("actual_points"),
+                func.count().label("games"),
+            )
+            .group_by(matched.c.gsis_id)
+            .subquery()
+        )
+        # Name/position/team for display -- from each player's most recent
+        # projection row in range, since those can change week to week
+        # (trades, etc.) and a season total has no single "the" week to pin
+        # them to.
+        latest = (
+            select(
+                PlayerProjection.gsis_id,
+                PlayerProjection.player_name,
+                PlayerProjection.position,
+                PlayerProjection.team,
+                func.row_number()
+                .over(partition_by=PlayerProjection.gsis_id, order_by=PlayerProjection.week.desc())
+                .label("rn"),
+            )
+            .where(PlayerProjection.season == season, PlayerProjection.gsis_id.is_not(None))
+            .subquery()
+        )
+
+        stmt = select(
+            agg.c.gsis_id,
+            latest.c.player_name,
+            latest.c.position,
+            latest.c.team,
+            agg.c.projected,
+            agg.c.actual_points,
+            agg.c.games,
+        ).join(latest, (latest.c.gsis_id == agg.c.gsis_id) & (latest.c.rn == 1))
+        rows = (await session.execute(stmt)).all()
+
+        out_rows = [
+            ProjectionDiffRow(
+                gsis_id=r.gsis_id,
+                name=r.player_name,
+                position=r.position,
+                team=r.team,
+                opponent=None,
+                is_home=None,
+                projected=round(float(r.projected), 1),
+                actual=round(float(r.actual_points or 0), 1),
+                diff=round(float(r.actual_points or 0) - float(r.projected), 1),
+                games=int(r.games),
+            )
+            for r in rows
+        ]
+        weeks_q = (
+            select(g.week)
+            .distinct()
+            .where(g.season == season, g.week.is_not(None))
+            .order_by(g.week)
+        )
+        weeks_included = [int(w) for w in (await session.execute(weeks_q)).scalars().all()]
+
     out_rows.sort(key=lambda r: r.diff, reverse=True)
 
-    return ProjectionDiffOut(season=season, week=week, scoring=scoring, rows=out_rows)  # type: ignore[arg-type]
+    return ProjectionDiffOut(season=season, week=week, weeks=weeks_included, scoring=scoring, rows=out_rows)
 
 
 @router.get("/fantasy/scoring", response_model=list[FantasyScoringPresetOut])

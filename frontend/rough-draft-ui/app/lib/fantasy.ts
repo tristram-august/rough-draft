@@ -192,20 +192,24 @@ export type ProjectionDiffRow = {
   projected: number;
   actual: number;
   diff: number;
+  games: number;
 };
 
 export type ProjectionDiff = {
   season: number;
-  week: number;
+  week: number | null;
+  weeks: number[];
   scoring: Scoring;
   rows: ProjectionDiffRow[];
 };
 
-export function fetchProjectionDiff(params: { season: number; week: number; scoring?: Scoring }) {
+// Omit `week` for the season-to-date aggregate (summed across every week
+// that has both a projection and a result).
+export function fetchProjectionDiff(params: { season: number; week?: number | null; scoring?: Scoring }) {
   const q = new URLSearchParams({
     season: String(params.season),
-    week: String(params.week),
     scoring: params.scoring ?? "ppr",
   });
+  if (params.week != null) q.set("week", String(params.week));
   return getJson<ProjectionDiff>(`/fantasy/projection-diff?${q}`);
 }

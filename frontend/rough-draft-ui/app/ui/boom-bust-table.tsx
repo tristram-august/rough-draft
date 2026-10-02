@@ -36,6 +36,8 @@ export function BoomBustTable({
   scoring,
   week,
   onWeekChange,
+  mode,
+  onModeChange,
   position,
   onPositionChange,
   direction,
@@ -45,6 +47,8 @@ export function BoomBustTable({
   scoring: Scoring;
   week: number | null;
   onWeekChange: (week: number | null) => void;
+  mode: "week" | "season";
+  onModeChange: (mode: "week" | "season") => void;
   position: FantasyPosition;
   onPositionChange: (position: FantasyPosition) => void;
   direction: SortDirection;
@@ -58,11 +62,13 @@ export function BoomBustTable({
   const latestWeek = weeks[weeks.length - 1] ?? null;
   // Default to the latest played week, but let the selector override it.
   const selectedWeek = week ?? latestWeek;
+  const isSeason = mode === "season";
 
   const diffQuery = useQuery({
-    queryKey: ["projection-diff", season, selectedWeek, scoring],
-    queryFn: () => fetchProjectionDiff({ season, week: selectedWeek as number, scoring }),
-    enabled: selectedWeek != null,
+    queryKey: ["projection-diff", season, isSeason ? "season" : selectedWeek, scoring],
+    queryFn: () =>
+      fetchProjectionDiff({ season, week: isSeason ? null : (selectedWeek as number), scoring }),
+    enabled: isSeason || selectedWeek != null,
     placeholderData: (prev) => prev,
   });
 
@@ -78,7 +84,7 @@ export function BoomBustTable({
   // direction is just a reverse, no need to re-sort client-side.
   const rows = direction === "asc" ? [...filtered].reverse() : filtered;
   const maxAbs = Math.max(1, ...rows.map((r) => Math.abs(r.diff)));
-  const weekAvailable = selectedWeek != null;
+  const weekAvailable = isSeason || selectedWeek != null;
 
   const selectClass =
     "rounded-xl border border-slate-800 bg-slate-900/40 px-3 py-1.5 text-xs font-medium text-slate-300 outline-none transition-colors focus:border-slate-600";
@@ -90,18 +96,29 @@ export function BoomBustTable({
   return (
     <div>
       <div className="mb-5 flex flex-wrap items-center gap-2">
-        <select
-          aria-label="Week"
-          value={selectedWeek ?? ""}
-          onChange={(e) => onWeekChange(e.target.value === "" ? null : Number(e.target.value))}
-          className={selectClass}
-        >
-          {weeks.map((w) => (
-            <option key={w} value={w}>
-              Week {w}
-            </option>
-          ))}
-        </select>
+        <Segmented
+          ariaLabel="Range"
+          value={mode}
+          onChange={onModeChange}
+          options={[
+            { value: "week", label: "This week" },
+            { value: "season", label: "Season so far" },
+          ]}
+        />
+        {!isSeason && (
+          <select
+            aria-label="Week"
+            value={selectedWeek ?? ""}
+            onChange={(e) => onWeekChange(e.target.value === "" ? null : Number(e.target.value))}
+            className={selectClass}
+          >
+            {weeks.map((w) => (
+              <option key={w} value={w}>
+                Week {w}
+              </option>
+            ))}
+          </select>
+        )}
         <Segmented
           ariaLabel="Position"
           value={position}
@@ -122,13 +139,19 @@ export function BoomBustTable({
         {diffQuery.data && (
           <span className="text-xs text-slate-600">
             {rows.length} player{rows.length === 1 ? "" : "s"}
+            {isSeason && diffQuery.data.weeks.length > 0 && (
+              <>
+                {" "}
+                · weeks {diffQuery.data.weeks[0]}–{diffQuery.data.weeks[diffQuery.data.weeks.length - 1]}
+              </>
+            )}
           </span>
         )}
       </div>
 
       {diffQuery.isError && (
         <div className="rounded-2xl border border-red-900/40 bg-red-950/20 px-4 py-3 text-sm text-red-300">
-          Couldn&apos;t load week {selectedWeek ?? ""}.
+          Couldn&apos;t load {isSeason ? "the season totals" : `week ${selectedWeek ?? ""}`}.
         </div>
       )}
 
@@ -163,6 +186,11 @@ export function BoomBustTable({
                 <th scope="col" className="hidden px-2 py-2.5 text-right font-semibold sm:table-cell">
                   Actual
                 </th>
+                {isSeason && (
+                  <th scope="col" className="hidden px-2 py-2.5 text-right font-semibold sm:table-cell">
+                    Gm
+                  </th>
+                )}
                 <th scope="col" className="px-3 py-2.5 pr-3 text-right font-semibold">
                   Diff
                 </th>
@@ -170,7 +198,15 @@ export function BoomBustTable({
             </thead>
             <tbody>
               {rows.map((r, i) => (
-                <BoomBustRow key={r.gsis_id} row={r} rank={i + 1} season={season} scoring={scoring} maxAbs={maxAbs} />
+                <BoomBustRow
+                  key={r.gsis_id}
+                  row={r}
+                  rank={i + 1}
+                  season={season}
+                  scoring={scoring}
+                  maxAbs={maxAbs}
+                  showGames={isSeason}
+                />
               ))}
             </tbody>
           </table>
@@ -178,8 +214,9 @@ export function BoomBustTable({
       )}
 
       <p className="mt-4 text-xs leading-relaxed text-slate-600">
-        Projected points from FantasyPros, actual from that week&apos;s box score. Positive diff =
-        outperformed projection; negative = underperformed.
+        {isSeason
+          ? "Projected and actual points summed across every week each player has both a projection and a box score. Positive diff = outperformed projection; negative = underperformed."
+          : "Projected points from FantasyPros, actual from that week's box score. Positive diff = outperformed projection; negative = underperformed."}
       </p>
     </div>
   );
@@ -191,12 +228,14 @@ function BoomBustRow({
   season,
   scoring,
   maxAbs,
+  showGames,
 }: {
   row: ProjectionDiffRow;
   rank: number;
   season: number;
   scoring: Scoring;
   maxAbs: number;
+  showGames: boolean;
 }) {
   const isOver = row.diff >= 0;
   const pct = Math.round((Math.abs(row.diff) / maxAbs) * 100);
@@ -219,6 +258,7 @@ function BoomBustRow({
         </Link>
         <div className="mt-0.5 pl-[26px] text-[11px] text-slate-600 sm:hidden">
           proj {row.projected.toFixed(1)} → act {row.actual.toFixed(1)}
+          {showGames && ` (${row.games} gm${row.games === 1 ? "" : "s"})`}
         </div>
       </td>
       <td className="hidden px-2 py-2 text-right text-xs text-slate-500 tabular-nums sm:table-cell">
@@ -227,6 +267,11 @@ function BoomBustRow({
       <td className="hidden px-2 py-2 text-right text-xs text-slate-300 tabular-nums sm:table-cell">
         {row.actual.toFixed(1)}
       </td>
+      {showGames && (
+        <td className="hidden px-2 py-2 text-right text-xs text-slate-500 tabular-nums sm:table-cell">
+          {row.games}
+        </td>
+      )}
       <td className="px-3 py-2 text-right">
         <div className={`font-semibold tabular-nums ${isOver ? "text-emerald-400" : "text-rose-400"}`}>
           {fmtDiff(row.diff)}

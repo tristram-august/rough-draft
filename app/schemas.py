@@ -468,11 +468,19 @@ class ProjectionDiffRow(BaseModel):
     projected: float
     actual: float
     diff: float
+    # Weeks summed into this row -- 1 for a single-week row, >1 in
+    # season-to-date mode (a player who missed a week has fewer games than
+    # len(weeks) on the response, so per-game math needs this, not that).
+    games: int = 1
 
 
 class ProjectionDiffOut(BaseModel):
     season: int
-    week: int
+    # None in season-to-date mode (week omitted on the request).
+    week: int | None = None
+    # Which weeks are reflected in these totals -- a single-item list for a
+    # single week, every played week in season-to-date mode.
+    weeks: list[int] = []
     scoring: str
     rows: list[ProjectionDiffRow]
 

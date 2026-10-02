@@ -183,6 +183,7 @@ export default function FantasyRankingsPage({
     ? (initial.get("bbposition") as FantasyPosition)
     : "ALL";
   const initialBBDirection = initial.get("bbdir") === "asc" ? "asc" : "desc";
+  const initialBBMode = initial.get("bbmode") === "season" ? "season" : "week";
 
   const [tab, setTab] = React.useState<"board" | "leaderboard" | "boom-bust" | "compare">(initialTab);
   const [season, setSeason] = React.useState<number | null>(initialSeason);
@@ -197,6 +198,7 @@ export default function FantasyRankingsPage({
   const [bbWeek, setBBWeek] = React.useState<number | null>(initialBBWeek);
   const [bbPosition, setBBPosition] = React.useState<FantasyPosition>(initialBBPosition);
   const [bbDirection, setBBDirection] = React.useState<SortDirection>(initialBBDirection);
+  const [bbMode, setBBMode] = React.useState<"week" | "season">(initialBBMode);
 
   // Mirror all the filters into the URL — a single writer covering every
   // tab's state — so a trip to a player page and back (or a page refresh)
@@ -215,13 +217,17 @@ export default function FantasyRankingsPage({
       params.set("dir", direction);
     }
     if (tab === "boom-bust") {
-      if (bbWeek != null) params.set("bbweek", String(bbWeek));
+      if (bbMode === "season") {
+        params.set("bbmode", "season");
+      } else if (bbWeek != null) {
+        params.set("bbweek", String(bbWeek));
+      }
       if (bbPosition !== "ALL") params.set("bbposition", bbPosition);
       params.set("bbdir", bbDirection);
     }
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, season, week, position, scoring, sort, direction, bbWeek, bbPosition, bbDirection]);
+  }, [tab, season, week, position, scoring, sort, direction, bbWeek, bbPosition, bbDirection, bbMode]);
 
   const effectiveSort = sort ?? DEFAULT_SORT;
   const effectiveDirection: SortDirection = sort === null ? "desc" : direction;
@@ -388,6 +394,8 @@ export default function FantasyRankingsPage({
           scoring={scoring}
           week={bbWeek}
           onWeekChange={setBBWeek}
+          mode={bbMode}
+          onModeChange={setBBMode}
           position={bbPosition}
           onPositionChange={setBBPosition}
           direction={bbDirection}
