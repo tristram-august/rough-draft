@@ -11,6 +11,7 @@ export const NAV_ITEMS = [
   { href: "/draft", label: "Rough Draft" },
   { href: "/picks", label: "Picks" },
   { href: "/power", label: "Power Rankings" },
+  { href: "/betting", label: "Player Props" },
 ] as const;
 
 function isActive(pathname: string, href: string) {

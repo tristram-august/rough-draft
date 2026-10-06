@@ -7,6 +7,7 @@ from slowapi.errors import RateLimitExceeded
 
 from app.api import router
 from app.api_blog import router as blog_router
+from app.api_betting import router as betting_router
 from app.api_fantasy import router as fantasy_router
 from app.api_injuries import router as injuries_router
 from app.api_matchup_stats import router as matchup_stats_router
@@ -42,6 +43,7 @@ def create_app() -> FastAPI:
     app.include_router(router, prefix="/api")
     app.include_router(blog_router, prefix="/api")
     app.include_router(fantasy_router, prefix="/api")
+    app.include_router(betting_router, prefix="/api")
     app.include_router(schedule_router, prefix="/api")
     app.include_router(picks_router, prefix="/api")
     app.include_router(power_router, prefix="/api")
