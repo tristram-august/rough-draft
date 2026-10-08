@@ -8,6 +8,7 @@ from typing import Callable
 
 import numpy as np
 
+from app.betting.defense import TeamDefenseFactors
 from app.betting.engine import (
     DEFENSE_SHRINK_GAMES,
     HALF_LIFE_GAMES,
@@ -18,6 +19,8 @@ from app.betting.engine import (
 
 COUNT_PRIOR_GAMES = 8.0
 COUNT_OPPONENT_ADJUST = False
+SACK_PRESSURE_BETA = 0.0
+INT_FORCE_BETA = 0.0
 
 
 @dataclass(frozen=True)
@@ -111,10 +114,14 @@ class GameLevelContext:
         week: int,
         stat: str = "pass_yards",
         specs: dict[str, StatSpec] | None = None,
+        team_defense_games: list | None = None,
     ) -> None:
         self.season = season
         self.stat = stat
         self.spec = (specs or PASSER_STATS)[stat]
+        self.team_defense = (
+            TeamDefenseFactors(team_defense_games, season, week) if team_defense_games else None
+        )
         history = [g for g in games if (g.season, g.week) < (season, week)]
 
         by_season: dict[int, list[float]] = defaultdict(list)
@@ -165,6 +172,9 @@ class GameLevelContext:
                 rate = prior
             if COUNT_OPPONENT_ADJUST:
                 rate *= self.defense.get(next_opponent, 1.0)
+            if self.team_defense is not None and self.stat == "interceptions" and INT_FORCE_BETA != 0.0:
+                int_factor = self.team_defense.factor(next_opponent, "ints")
+                rate *= 1 + INT_FORCE_BETA * (int_factor - 1)
             return np.array([self.spec.level_correction * rate]), np.array([1.0])
 
         n = len(hist)
@@ -176,6 +186,13 @@ class GameLevelContext:
                 for g in hist
             ]
         )
+        if (
+            self.team_defense is not None
+            and self.stat in ("pass_yards", "pass_attempts")
+            and SACK_PRESSURE_BETA != 0.0
+        ):
+            sack_factor = self.team_defense.factor(next_opponent, "sacks")
+            values = values * (1 - SACK_PRESSURE_BETA * (sack_factor - 1))
         return self.spec.level_correction * values, recency
 
     def raw_samples(self, player_id: str) -> tuple[np.ndarray, np.ndarray]:

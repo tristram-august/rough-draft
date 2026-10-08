@@ -114,6 +114,13 @@ def _stat_line(row: Any) -> FantasyStatLine:
     )
 
 
+# FantasyPros' projections label Jacksonville "JAC"; the schedule table (from
+# nflverse's games.csv) uses "JAX". Unlike the relocated franchises handled at
+# schedule-ingest time, this is just two sources disagreeing on one team's
+# code, so it's resolved here where those two sources meet.
+_FANTASYPROS_TEAM_ALIASES = {"JAC": "JAX"}
+
+
 async def _opponent_map(
     session: AsyncSession, season: int, week: int, teams: set[str]
 ) -> tuple[dict[str, str], dict[str, bool]]:
@@ -125,22 +132,30 @@ async def _opponent_map(
     is_home_by_team: dict[str, bool] = {}
     if not teams:
         return opponent_by_team, is_home_by_team
+    canonical = {team: _FANTASYPROS_TEAM_ALIASES.get(team, team) for team in teams}
+    schedule_teams = set(canonical.values())
     game_rows = (
         await session.execute(
             select(Game.home_team, Game.away_team).where(
                 Game.season == season,
                 Game.week == week,
-                or_(Game.home_team.in_(teams), Game.away_team.in_(teams)),
+                or_(Game.home_team.in_(schedule_teams), Game.away_team.in_(schedule_teams)),
             )
         )
     ).all()
+    opponent_by_schedule_team: dict[str, str] = {}
+    is_home_by_schedule_team: dict[str, bool] = {}
     for home, away in game_rows:
-        if home in teams:
-            opponent_by_team[home] = away
-            is_home_by_team[home] = True
-        if away in teams:
-            opponent_by_team[away] = home
-            is_home_by_team[away] = False
+        if home in schedule_teams:
+            opponent_by_schedule_team[home] = away
+            is_home_by_schedule_team[home] = True
+        if away in schedule_teams:
+            opponent_by_schedule_team[away] = home
+            is_home_by_schedule_team[away] = False
+    for team, schedule_team in canonical.items():
+        if schedule_team in opponent_by_schedule_team:
+            opponent_by_team[team] = opponent_by_schedule_team[schedule_team]
+            is_home_by_team[team] = is_home_by_schedule_team[schedule_team]
     return opponent_by_team, is_home_by_team
 
 
