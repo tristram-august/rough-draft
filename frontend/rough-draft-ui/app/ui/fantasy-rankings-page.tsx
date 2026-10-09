@@ -9,6 +9,7 @@ import { Segmented } from "./segmented";
 import { FantasyBoard } from "./fantasy-board";
 import { BoomBustTable } from "./boom-bust-table";
 import { CompareTool } from "./compare-tool";
+import { CURRENT_TEAMS } from "../lib/team-colors";
 import {
   POSITIONS,
   SCORING_LABELS,
@@ -172,6 +173,9 @@ export default function FantasyRankingsPage({
   const initialPosition = (POSITIONS as readonly string[]).includes(initial.get("position") ?? "")
     ? (initial.get("position") as FantasyPosition)
     : "ALL";
+  const initialTeam = (CURRENT_TEAMS as readonly string[]).includes(initial.get("team") ?? "")
+    ? (initial.get("team") as string)
+    : "ALL";
   const initialSort = (initial.get("sort") as FantasySort | null) ?? null;
   const initialDirection = initial.get("dir") === "asc" ? "asc" : "desc";
 
@@ -189,6 +193,7 @@ export default function FantasyRankingsPage({
   const [season, setSeason] = React.useState<number | null>(initialSeason);
   const [week, setWeek] = React.useState<number | null>(initialWeek);
   const [position, setPosition] = React.useState<FantasyPosition>(initialPosition);
+  const [team, setTeam] = React.useState<string>(initialTeam);
   const [scoring, setScoring] = React.useState<Scoring>(initialScoring);
 
   // null = no explicit sort; falls back to the default ordering.
@@ -209,6 +214,7 @@ export default function FantasyRankingsPage({
     if (season != null) params.set("season", String(season));
     if (tab === "leaderboard" && week != null) params.set("week", String(week));
     if (tab === "leaderboard" && position !== "ALL") params.set("position", position);
+    if (tab === "leaderboard" && team !== "ALL") params.set("team", team);
     // Scoring is shared by Leaderboard and Compare (both show real fantasy
     // points), so it's written regardless of which of those two is active.
     if (tab === "leaderboard" || tab === "compare") params.set("scoring", scoring);
@@ -227,7 +233,7 @@ export default function FantasyRankingsPage({
     }
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, season, week, position, scoring, sort, direction, bbWeek, bbPosition, bbDirection, bbMode]);
+  }, [tab, season, week, position, team, scoring, sort, direction, bbWeek, bbPosition, bbDirection, bbMode]);
 
   const effectiveSort = sort ?? DEFAULT_SORT;
   const effectiveDirection: SortDirection = sort === null ? "desc" : direction;
@@ -289,6 +295,7 @@ export default function FantasyRankingsPage({
       activeSeason,
       week,
       position,
+      team,
       scoring,
       effectiveSort,
       effectiveDirection,
@@ -299,6 +306,7 @@ export default function FantasyRankingsPage({
         season: activeSeason as number,
         week,
         position,
+        team,
         scoring,
         sort: effectiveSort,
         direction: effectiveDirection,
@@ -450,6 +458,20 @@ export default function FantasyRankingsPage({
           onChange={setPosition}
           options={POSITIONS.map((p) => ({ value: p, label: p === "ALL" ? "All" : p }))}
         />
+
+        <select
+          aria-label="Team"
+          value={team}
+          onChange={(e) => setTeam(e.target.value)}
+          className={selectClass}
+        >
+          <option value="ALL">All teams</option>
+          {CURRENT_TEAMS.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </select>
 
         {minGames > 1 && <span className="text-xs text-slate-600">min {minGames} games</span>}
 

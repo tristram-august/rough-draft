@@ -12,6 +12,14 @@ export const TEAM_COLORS: Record<string, string> = {
   SD:  "#0080C6", STL: "#003594", OAK: "#A5ACAF",
 };
 
+/** Current 32 teams, sorted, for filter dropdowns. Excludes relocated codes. */
+export const CURRENT_TEAMS = [
+  "ARI", "ATL", "BAL", "BUF", "CAR", "CHI", "CIN", "CLE", "DAL", "DEN",
+  "DET", "GB", "HOU", "IND", "JAX", "KC", "LAC", "LAR", "LV", "MIA",
+  "MIN", "NE", "NO", "NYG", "NYJ", "PHI", "PIT", "SEA", "SF", "TB",
+  "TEN", "WAS",
+] as const;
+
 export function teamColor(abbrev: string | null | undefined): string {
   return TEAM_COLORS[abbrev?.toUpperCase() ?? ""] ?? "#475569";
 }

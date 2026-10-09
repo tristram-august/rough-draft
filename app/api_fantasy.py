@@ -49,6 +49,19 @@ FUMBLE_LOST_POINTS = -2.0
 
 FLEX_POSITIONS = ("RB", "WR", "TE")
 
+VALID_TEAMS = (
+    "ARI", "ATL", "BAL", "BUF", "CAR", "CHI", "CIN", "CLE", "DAL", "DEN",
+    "DET", "GB", "HOU", "IND", "JAX", "KC", "LAC", "LAR", "LV", "MIA",
+    "MIN", "NE", "NO", "NYG", "NYJ", "PHI", "PIT", "SEA", "SF", "TB",
+    "TEN", "WAS",
+)
+
+# player_game_stat.team comes straight from nflverse's weekly file, which
+# still labels the Rams "LA" -- unlike the schedule ingest, which aliases it
+# to "LAR" (see ingest_schedules.TEAM_ALIASES). VALID_TEAMS and the frontend
+# both use "LAR", so the filter below translates back for the query.
+_LEADERBOARD_TEAM_ALIASES = {"LAR": "LA"}
+
 # Sort keys that map straight onto a column of the grouped subquery. "ppg" and
 # "td" are computed separately in _order_expr.
 SORT_COLUMNS = {
@@ -543,6 +556,7 @@ async def fantasy_leaderboard(
     week: int | None = Query(default=None, ge=1, le=30),
     season_type: str = Query(default="REG", max_length=8),
     position: str = Query(default="ALL"),
+    team: str = Query(default="ALL"),
     scoring: str = Query(default="ppr"),
     sort: str = Query(default="total"),
     direction: str = Query(default="desc"),
@@ -553,6 +567,8 @@ async def fantasy_leaderboard(
 ) -> FantasyLeaderboardOut:
     if position not in ("ALL", "QB", "RB", "WR", "TE", "FLEX"):
         raise HTTPException(status_code=400, detail="Unknown position filter")
+    if team != "ALL" and team not in VALID_TEAMS:
+        raise HTTPException(status_code=400, detail="Unknown team filter")
     if sort not in VALID_SORTS:
         raise HTTPException(status_code=400, detail="Unknown sort")
     if direction not in ("asc", "desc"):
@@ -565,11 +581,13 @@ async def fantasy_leaderboard(
     filters: list[Any] = [g.season == season, g.season_type == season_type]
     if week is not None:
         filters.append(g.week == week)
+    if team != "ALL":
+        filters.append(g.team == _LEADERBOARD_TEAM_ALIASES.get(team, team))
 
     if position == "FLEX":
-        filters.append(PlayerDim.position.in_(FLEX_POSITIONS))
+        filters.append(g.position_group.in_(FLEX_POSITIONS))
     elif position != "ALL":
-        filters.append(PlayerDim.position == position)
+        filters.append(g.position_group == position)
 
     games_expr = func.count(func.distinct(g.game_id)).label("games")
     total_points = func.sum(points).label("fantasy_points")
@@ -580,14 +598,17 @@ async def fantasy_leaderboard(
         select(
             g.player_gsis_id.label("gsis_id"),
             func.max(PlayerDim.display_name).label("display_name"),
-            func.max(PlayerDim.position).label("position"),
+            # PlayerDim lags behind the weekly stat file for brand-new players
+            # (rookies especially) -- fall back to the position recorded on
+            # the stat row itself rather than silently dropping them.
+            func.coalesce(func.max(PlayerDim.position), func.max(g.position_group)).label("position"),
             func.max(PlayerDim.headshot).label("headshot"),
             team_expr,
             games_expr,
             total_points,
             *_sum_stat_columns(),
         )
-        .join(PlayerDim, PlayerDim.gsis_id == g.player_gsis_id, isouter=(position == "ALL"))
+        .join(PlayerDim, PlayerDim.gsis_id == g.player_gsis_id, isouter=True)
         .where(*filters)
         .group_by(g.player_gsis_id)
     )
@@ -639,6 +660,7 @@ async def fantasy_leaderboard(
         season_type=season_type,
         scoring=scoring,  # type: ignore[arg-type]
         position=position,  # type: ignore[arg-type]
+        team=team,
         sort=sort,  # type: ignore[arg-type]
         direction=direction,  # type: ignore[arg-type]
         total=total,

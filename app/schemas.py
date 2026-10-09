@@ -356,6 +356,7 @@ class FantasyLeaderboardOut(BaseModel):
     season_type: str
     scoring: ScoringLiteral
     position: FantasyPositionLiteral
+    team: str = "ALL"
     sort: FantasySortLiteral
     direction: FantasyDirectionLiteral = "desc"
     total: int

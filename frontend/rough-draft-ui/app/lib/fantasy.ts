@@ -64,6 +64,7 @@ export type FantasyLeaderboard = {
   season_type: string;
   scoring: Scoring;
   position: FantasyPosition;
+  team: string;
   sort: FantasySort;
   direction: SortDirection;
   total: number;
@@ -141,6 +142,7 @@ export function fetchLeaderboard(params: {
   season: number;
   week?: number | null;
   position: FantasyPosition;
+  team?: string;
   scoring: Scoring;
   sort: FantasySort;
   direction?: SortDirection;
@@ -150,6 +152,7 @@ export function fetchLeaderboard(params: {
   const q = new URLSearchParams({
     season: String(params.season),
     position: params.position,
+    team: params.team ?? "ALL",
     scoring: params.scoring,
     sort: params.sort,
     direction: params.direction ?? "desc",
