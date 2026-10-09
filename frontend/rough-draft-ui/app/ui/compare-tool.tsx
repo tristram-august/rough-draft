@@ -8,6 +8,7 @@ import {
   SCORING_LABELS,
   fetchFantasyPlayer,
   type FantasyBoardRow,
+  type FantasyGameRow,
   type Scoring,
 } from "../lib/fantasy";
 
@@ -22,6 +23,65 @@ const POSITION_COLORS: Record<string, string> = {
 
 type SelectedPlayer = { gsisId: string; name: string; position: string; team: string | null };
 
+type StatOption = {
+  key: string;
+  label: string;
+  value: (g: FantasyGameRow) => number;
+  decimals: number;
+  /** Only offered when at least one selected player is one of these
+   * positions -- a passing-yards column is noise if nobody picked is a QB. */
+  positions?: readonly string[];
+};
+
+const STAT_OPTIONS: StatOption[] = [
+  { key: "fantasy_points", label: "Fantasy Points", value: (g) => g.fantasy_points, decimals: 1 },
+  { key: "pass_yards", label: "Pass Yards", value: (g) => g.stats.pass_yards, decimals: 0, positions: ["QB"] },
+  { key: "pass_tds", label: "Pass TDs", value: (g) => g.stats.pass_tds, decimals: 0, positions: ["QB"] },
+  { key: "pass_ints", label: "Interceptions", value: (g) => g.stats.pass_ints, decimals: 0, positions: ["QB"] },
+  {
+    key: "rush_yards",
+    label: "Rush Yards",
+    value: (g) => g.stats.rush_yards,
+    decimals: 0,
+    positions: ["QB", "RB", "WR"],
+  },
+  {
+    key: "rush_tds",
+    label: "Rush TDs",
+    value: (g) => g.stats.rush_tds,
+    decimals: 0,
+    positions: ["QB", "RB", "WR"],
+  },
+  {
+    key: "targets",
+    label: "Targets",
+    value: (g) => g.stats.targets,
+    decimals: 0,
+    positions: ["RB", "WR", "TE"],
+  },
+  {
+    key: "receptions",
+    label: "Receptions",
+    value: (g) => g.stats.receptions,
+    decimals: 0,
+    positions: ["RB", "WR", "TE"],
+  },
+  {
+    key: "rec_yards",
+    label: "Receiving Yards",
+    value: (g) => g.stats.rec_yards,
+    decimals: 0,
+    positions: ["RB", "WR", "TE"],
+  },
+  {
+    key: "rec_tds",
+    label: "Receiving TDs",
+    value: (g) => g.stats.rec_tds,
+    decimals: 0,
+    positions: ["RB", "WR", "TE"],
+  },
+];
+
 export function CompareTool({
   season,
   scoring,
@@ -32,6 +92,23 @@ export function CompareTool({
   onScoringChange: (scoring: Scoring) => void;
 }) {
   const [selected, setSelected] = React.useState<SelectedPlayer[]>([]);
+  const [statKey, setStatKey] = React.useState("fantasy_points");
+
+  const availableStats = React.useMemo(
+    () =>
+      STAT_OPTIONS.filter(
+        (opt) => !opt.positions || selected.some((p) => opt.positions!.includes(p.position))
+      ),
+    [selected]
+  );
+  const stat = availableStats.find((s) => s.key === statKey) ?? STAT_OPTIONS[0];
+
+  // Drop back to Fantasy Points if the selection changes out from under the
+  // current stat -- e.g. Pass Yards was picked while comparing a QB, then
+  // the QB got cleared and only RBs are left selected.
+  React.useEffect(() => {
+    if (!availableStats.some((s) => s.key === statKey)) setStatKey("fantasy_points");
+  }, [availableStats, statKey]);
 
   const toggle = React.useCallback((id: string, row: FantasyBoardRow) => {
     setSelected((prev) => {
@@ -70,17 +147,17 @@ export function CompareTool({
     return [...set].sort((a, b) => a - b);
   }, [playerQueries]);
 
-  const pointsByPlayerWeek = React.useMemo(() => {
+  const valuesByPlayerWeek = React.useMemo(() => {
     const map = new Map<string, Map<number, number>>();
     selected.forEach((p, i) => {
       const byWeek = new Map<number, number>();
       for (const g of playerQueries[i]?.data?.games ?? []) {
-        if (g.season_type === "REG" && g.week != null) byWeek.set(g.week, g.fantasy_points);
+        if (g.season_type === "REG" && g.week != null) byWeek.set(g.week, stat.value(g));
       }
       map.set(p.gsisId, byWeek);
     });
     return map;
-  }, [selected, playerQueries]);
+  }, [selected, playerQueries, stat]);
 
   // Scroll the grid into view the moment there's something to show --
   // results used to render below the full ~500-row board with no visual
@@ -98,15 +175,31 @@ export function CompareTool({
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border border-slate-800 bg-slate-900/30 px-4 py-3 text-sm text-slate-400">
-        Check 2–4 players below to compare their fantasy points, week by week.
+        Check 2–4 players below to compare them week by week — fantasy points, or a specific stat.
       </div>
 
-      <Segmented
-        ariaLabel="Scoring format"
-        value={scoring}
-        onChange={onScoringChange}
-        options={(["ppr", "half", "std"] as const).map((k) => ({ value: k, label: SCORING_LABELS[k] }))}
-      />
+      <div className="flex flex-wrap items-center gap-2">
+        <select
+          aria-label="Stat"
+          value={stat.key}
+          onChange={(e) => setStatKey(e.target.value)}
+          className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs font-medium text-slate-300 outline-none transition-colors focus:border-slate-600"
+        >
+          {availableStats.map((opt) => (
+            <option key={opt.key} value={opt.key}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+        {stat.key === "fantasy_points" && (
+          <Segmented
+            ariaLabel="Scoring format"
+            value={scoring}
+            onChange={onScoringChange}
+            options={(["ppr", "half", "std"] as const).map((k) => ({ value: k, label: SCORING_LABELS[k] }))}
+          />
+        )}
+      </div>
 
       <div className="sticky top-20 z-10 flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950/95 px-4 py-3 shadow-lg backdrop-blur">
         <span className="text-sm text-slate-300">Comparing ({selected.length}/4)</span>
@@ -147,11 +240,11 @@ export function CompareTool({
                 <tr key={w} className="border-t border-slate-800/60">
                   <td className="px-3 py-2 text-xs text-slate-500">Wk {w}</td>
                   {selected.map((p) => {
-                    const pts = pointsByPlayerWeek.get(p.gsisId)?.get(w);
+                    const v = valuesByPlayerWeek.get(p.gsisId)?.get(w);
                     return (
                       <td key={p.gsisId} className="px-3 py-2 text-right tabular-nums">
-                        {pts != null ? (
-                          <span className="text-slate-100">{pts.toFixed(1)}</span>
+                        {v != null ? (
+                          <span className="text-slate-100">{v.toFixed(stat.decimals)}</span>
                         ) : (
                           <span className="text-slate-700">—</span>
                         )}
@@ -163,12 +256,12 @@ export function CompareTool({
               <tr className="border-t border-slate-700 bg-slate-900/40 font-semibold">
                 <td className="px-3 py-2 text-xs text-slate-400">Total</td>
                 {selected.map((p) => {
-                  const byWeek = pointsByPlayerWeek.get(p.gsisId);
+                  const byWeek = valuesByPlayerWeek.get(p.gsisId);
                   const total = [...(byWeek?.values() ?? [])].reduce((a, b) => a + b, 0);
                   const games = byWeek?.size ?? 0;
                   return (
                     <td key={p.gsisId} className="px-3 py-2 text-right tabular-nums">
-                      <div className="text-slate-100">{total.toFixed(1)}</div>
+                      <div className="text-slate-100">{total.toFixed(stat.decimals)}</div>
                       <div className="text-[11px] font-normal text-slate-500">
                         {games > 0 ? `${(total / games).toFixed(1)}/gm` : "—"}
                       </div>
@@ -184,7 +277,7 @@ export function CompareTool({
             </p>
           )}
           <p className="px-3 py-2 text-xs leading-relaxed text-slate-600">
-            Fantasy points from actual game-by-game production, not projections.
+            {stat.label} from actual game-by-game production, not projections.
           </p>
         </div>
       )}

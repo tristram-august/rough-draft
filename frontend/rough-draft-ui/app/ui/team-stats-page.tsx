@@ -50,7 +50,7 @@ const DEFENSE_COLUMNS: Column[] = [
 ];
 
 const selectClass =
-  "rounded-xl border border-slate-800 bg-slate-900/40 px-3 py-1.5 text-xs font-medium text-slate-300 outline-none transition-colors focus:border-slate-600";
+  "rounded-xl border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs font-medium text-slate-300 outline-none transition-colors focus:border-slate-600";
 
 function SortHeader({
   label,

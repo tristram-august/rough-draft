@@ -290,7 +290,7 @@ export default function PowerRankingsPage() {
             setWeek(e.target.value === "" ? null : Number(e.target.value));
             setEditing(false);
           }}
-          className="rounded-xl border border-slate-800 bg-slate-900/40 px-3 py-1.5 text-xs font-medium text-slate-300 outline-none transition-colors focus:border-slate-600"
+          className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs font-medium text-slate-300 outline-none transition-colors focus:border-slate-600"
         >
           <option value="">Preseason</option>
           {Array.from({ length: 18 }, (_, i) => i + 1).map((w) => (

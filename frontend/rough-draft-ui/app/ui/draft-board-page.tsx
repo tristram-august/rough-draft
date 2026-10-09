@@ -1331,7 +1331,7 @@ export default function DraftBoardPage() {
       <div className="flex flex-col gap-1 sm:flex-1">
         <label className="text-xs text-slate-500">Year</label>
         <select
-          className="w-full rounded-2xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-sm"
+          className="w-full rounded-2xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm"
           value={year}
           onChange={(e) => setYear(Number(e.target.value))}
         >
@@ -1343,7 +1343,7 @@ export default function DraftBoardPage() {
       <div className="flex flex-col gap-1 sm:flex-1">
         <label className="text-xs text-slate-500">Round</label>
         <select
-          className="w-full rounded-2xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-sm"
+          className="w-full rounded-2xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm"
           value={round ?? ""}
           onChange={(e) => setRound(e.target.value ? Number(e.target.value) : null)}
         >
@@ -1356,7 +1356,7 @@ export default function DraftBoardPage() {
       <div className="flex flex-col gap-1 sm:flex-[2]">
         <label className="text-xs text-slate-500">Team</label>
         <select
-          className="w-full rounded-2xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-sm"
+          className="w-full rounded-2xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm"
           value={team}
           onChange={(e) => setTeam(e.target.value)}
         >
@@ -1369,7 +1369,7 @@ export default function DraftBoardPage() {
       <div className="flex flex-col gap-1 sm:flex-1">
         <label className="text-xs text-slate-500">Pos</label>
         <select
-          className="w-full rounded-2xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-sm"
+          className="w-full rounded-2xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm"
           value={pos}
           onChange={(e) => setPos(e.target.value)}
         >
@@ -1449,7 +1449,7 @@ export default function DraftBoardPage() {
         <div className="flex sm:hidden items-center justify-between gap-3">
           <div className="flex items-center gap-1.5 flex-wrap">
             <select
-              className="rounded-xl border border-slate-700 bg-slate-900/60 px-2 py-1.5 text-sm font-medium text-slate-200"
+              className="rounded-xl border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm font-medium text-slate-200"
               value={year}
               onChange={(e) => { setYear(Number(e.target.value)); setOffset(0); }}
             >
