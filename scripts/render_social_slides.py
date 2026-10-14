@@ -1,9 +1,11 @@
 """
-Screenshot the /social/boom-bust slides for one week into PNGs ready to
-upload to Instagram as a carousel.
+Screenshot the /social/boom-bust slides into PNGs ready to upload to
+Instagram as a carousel -- for one week, or for the season so far.
 
     python scripts/render_social_slides.py --week 3
-    python scripts/render_social_slides.py --week 3 --pages 2 --spotlight 00-0032950
+    python scripts/render_social_slides.py --week 3 --spotlight 00-0032950
+    python scripts/render_social_slides.py --season-to-date
+    python scripts/render_social_slides.py --season-to-date --min-projected 25
 
 Requires the frontend dev server (or a deployed instance) reachable at
 --base-url, and the `social` extra installed:
@@ -26,26 +28,46 @@ VIEWPORT = {"width": 1080, "height": 1350}
 DEVICE_SCALE_FACTOR = 2
 READY_SELECTOR = '[data-slide-ready="true"]'
 READY_TIMEOUT_MS = 15_000
+DEFAULT_LIMIT = 6
 
 
 def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="Render the weekly boom/bust Instagram carousel to PNGs.")
-    p.add_argument("--week", type=int, required=True)
+    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    week_group = p.add_mutually_exclusive_group(required=True)
+    week_group.add_argument("--week", type=int, help="Render one week's slides.")
+    week_group.add_argument("--season-to-date", action="store_true", help="Render season-so-far slides instead.")
     p.add_argument("--season", type=int, default=None, help="Defaults to the latest season the app has.")
     p.add_argument("--scoring", default="ppr", choices=["ppr", "half", "std"])
-    p.add_argument("--pages", type=int, default=1, choices=[1, 2], help="1 = top 6 per list, 2 = top 12.")
+    p.add_argument("--limit", type=int, default=DEFAULT_LIMIT, help="Rows per Over/Under/Met slide.")
+    p.add_argument(
+        "--min-projected",
+        type=float,
+        default=30.0,
+        help="Only players projected at least this many points are eligible for the Met-projection slide.",
+    )
+    p.add_argument("--no-met", action="store_true", help="Skip the Closest-to-Projection slide.")
     p.add_argument("--spotlight", default=None, help="gsis_id to feature; defaults to the top overperformer.")
     p.add_argument("--base-url", default="http://localhost:3000")
-    p.add_argument("--out-dir", default=None, help="Defaults to output/social/week_<N>/")
+    p.add_argument("--out-dir", default=None, help="Defaults to output/social/week_<N>/ or .../season/")
     return p.parse_args()
 
 
-def slide_url(base_url: str, week: int, slide: str, *, season: int | None, scoring: str, page: int = 1, spotlight: str | None = None) -> str:
-    params = [f"week={week}", f"slide={slide}", f"scoring={scoring}"]
+def slide_url(
+    base_url: str,
+    slide: str,
+    *,
+    week: int | None,
+    season: int | None,
+    scoring: str,
+    limit: int,
+    min_projected: float,
+    spotlight: str | None = None,
+) -> str:
+    params = [f"slide={slide}", f"scoring={scoring}", f"limit={limit}", f"minProjected={min_projected}"]
+    if week is not None:
+        params.append(f"week={week}")
     if season is not None:
         params.append(f"season={season}")
-    if page > 1:
-        params.append(f"page={page}")
     if spotlight:
         params.append(f"spotlight={spotlight}")
     return f"{base_url}/social/boom-bust?{'&'.join(params)}"
@@ -53,29 +75,27 @@ def slide_url(base_url: str, week: int, slide: str, *, season: int | None, scori
 
 def build_plan(args: argparse.Namespace) -> list[tuple[str, str]]:
     """(filename, url) pairs, numbered so they sort into upload order."""
-    common = dict(season=args.season, scoring=args.scoring)
+    week = None if args.season_to_date else args.week
+    common = dict(week=week, season=args.season, scoring=args.scoring, limit=args.limit, min_projected=args.min_projected)
     plan = [
-        ("01_cover.png", slide_url(args.base_url, args.week, "cover", **common)),
-        ("02_over.png", slide_url(args.base_url, args.week, "over", **common)),
+        ("01_cover.png", slide_url(args.base_url, "cover", **common)),
+        ("02_over.png", slide_url(args.base_url, "over", **common)),
+        ("03_under.png", slide_url(args.base_url, "under", **common)),
     ]
-    n = 3
-    if args.pages == 2:
-        plan.append((f"0{n}_over_2.png", slide_url(args.base_url, args.week, "over", page=2, **common)))
+    n = 4
+    if not args.no_met:
+        plan.append((f"0{n}_met.png", slide_url(args.base_url, "met", **common)))
         n += 1
-    plan.append((f"0{n}_under.png", slide_url(args.base_url, args.week, "under", **common)))
+    plan.append((f"0{n}_spotlight.png", slide_url(args.base_url, "spotlight", spotlight=args.spotlight, **common)))
     n += 1
-    if args.pages == 2:
-        plan.append((f"0{n}_under_2.png", slide_url(args.base_url, args.week, "under", page=2, **common)))
-        n += 1
-    plan.append((f"0{n}_spotlight.png", slide_url(args.base_url, args.week, "spotlight", spotlight=args.spotlight, **common)))
-    n += 1
-    plan.append((f"0{n}_cta.png", slide_url(args.base_url, args.week, "cta", **common)))
+    plan.append((f"0{n}_cta.png", slide_url(args.base_url, "cta", **common)))
     return plan
 
 
 def main() -> None:
     args = parse_args()
-    out_dir = Path(args.out_dir or f"output/social/week_{args.week}")
+    default_dir = f"output/social/week_{args.week}" if args.week else "output/social/season"
+    out_dir = Path(args.out_dir or default_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     plan = build_plan(args)
