@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { PageHeader } from "./page-header";
 import { Segmented } from "./segmented";
@@ -208,7 +209,12 @@ export function TeamStatsPage() {
                 <tr key={r.team} className="border-t border-slate-800/60 transition-colors hover:bg-slate-900/40">
                   <td className="px-3 py-2 text-xs text-slate-600 tabular-nums">{i + 1}</td>
                   <td className="px-3 py-2">
-                    <span className="font-medium text-slate-100">{r.team_name ?? r.team}</span>
+                    <Link
+                      href={`/teams/${r.team}?season=${activeSeason}`}
+                      className="font-medium text-slate-100 underline-offset-2 hover:text-white hover:underline"
+                    >
+                      {r.team_name ?? r.team}
+                    </Link>
                     <span className="ml-1.5 text-[11px] text-slate-600">{r.team}</span>
                   </td>
                   <td className="px-2 py-2 text-right text-xs text-slate-500 tabular-nums">{r.games}</td>
@@ -236,7 +242,7 @@ export function TeamStatsPage() {
       )}
 
       <p className="mt-4 text-xs leading-relaxed text-slate-600">
-        Takeaways counts interceptions plus forced fumbles as a proxy -- a forced fumble isn&apos;t always recovered by the forcing team, so it can run slightly high.
+        Click a team for its game log and league ranks. Takeaways and giveaways count interceptions plus lost fumbles, including special teams.
       </p>
     </div>
   );

@@ -41,6 +41,14 @@ INT_COLS = [
     "sack_fumbles_lost", "rushing_fumbles_lost", "receiving_fumbles_lost",
     "def_tackles_for_loss", "def_fumbles_forced", "def_qb_hits", "def_interceptions", "def_tds",
     "fg_made", "fg_att", "pat_made", "pat_att", "penalties", "penalty_yards",
+    "sacks_suffered", "sack_yards_lost", "passing_air_yards", "passing_yards_after_catch",
+    "passing_first_downs", "rushing_first_downs", "passing_20", "passing_40", "rushing_20", "rushing_40",
+    "fumbles_lost_total", "fumble_recovery_opp", "def_pass_defended", "def_safeties", "special_teams_tds",
+    "fg_long",
+    "fg_made_0_19", "fg_made_20_29", "fg_made_30_39", "fg_made_40_49", "fg_made_50_59", "fg_made_60_",
+    "fg_missed_0_19", "fg_missed_20_29", "fg_missed_30_39", "fg_missed_40_49", "fg_missed_50_59", "fg_missed_60_",
+    "pt_att", "pt_yards", "pt_net_yards", "pt_inside_20", "pt_touchback",
+    "punt_returns", "punt_return_yards", "kickoff_returns", "kickoff_return_yards",
 ]
 FLOAT_COLS = ["passing_epa", "passing_cpoe", "rushing_epa", "receiving_epa", "def_sacks"]
 
@@ -127,8 +135,9 @@ async def ingest(csv_dir: Path | None, from_year: int, to_year: int) -> None:
             if not payload:
                 continue
 
-            for i in range(0, len(payload), 500):
-                chunk = payload[i : i + 500]
+            # asyncpg caps a statement at 32767 bind params; 200 rows x ~75 cols stays under it.
+            for i in range(0, len(payload), 200):
+                chunk = payload[i : i + 200]
                 stmt = insert(TeamGameStat).values(chunk)
                 stmt = stmt.on_conflict_do_update(
                     constraint="uq_team_game",

@@ -727,3 +727,49 @@ class TeamStatsOut(BaseModel):
     total: int
     rows: list[TeamStatRow]
 
+
+class TeamMetric(BaseModel):
+    key: str
+    label: str
+    value: float | None = None
+    display: str
+    rank: int | None = None   # 1 = best when `better` is set, else 1 = highest
+    of: int
+    better: str | None = None  # "high" | "low" | None (descriptive, no good/bad)
+    note: str | None = None
+
+
+class TeamGameLogRow(BaseModel):
+    week: int | None = None
+    game_id: str
+    gameday: str | None = None
+    opponent: str | None = None
+    home: bool
+    points_for: int | None = None
+    points_against: int | None = None
+    result: str | None = None  # W / L / T, None if unplayed
+    off_epa_per_play: float | None = None
+    def_epa_per_play_allowed: float | None = None
+    yards: int
+    yards_allowed: int
+    giveaways: int
+    takeaways: int
+
+
+class TeamProfileOut(BaseModel):
+    team: str
+    team_name: str | None = None
+    season: int
+    season_type: str
+    games: int
+    wins: int
+    losses: int
+    ties: int
+    points_for: int
+    points_against: int
+    summary: list[TeamMetric]
+    offense: list[TeamMetric]
+    defense: list[TeamMetric]
+    special_teams: list[TeamMetric]
+    game_log: list[TeamGameLogRow]
+

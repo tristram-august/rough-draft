@@ -73,3 +73,53 @@ export function fetchTeamStats(params: {
   if (params.week != null) q.set("week", String(params.week));
   return getJson<TeamStats>(`/teams/stats?${q}`);
 }
+
+export type TeamMetric = {
+  key: string;
+  label: string;
+  value: number | null;
+  display: string;
+  rank: number | null;
+  of: number;
+  better: "high" | "low" | null;
+  note: string | null;
+};
+
+export type TeamGameLogRow = {
+  week: number | null;
+  game_id: string;
+  gameday: string | null;
+  opponent: string | null;
+  home: boolean;
+  points_for: number | null;
+  points_against: number | null;
+  result: "W" | "L" | "T" | null;
+  off_epa_per_play: number | null;
+  def_epa_per_play_allowed: number | null;
+  yards: number;
+  yards_allowed: number;
+  giveaways: number;
+  takeaways: number;
+};
+
+export type TeamProfile = {
+  team: string;
+  team_name: string | null;
+  season: number;
+  season_type: string;
+  games: number;
+  wins: number;
+  losses: number;
+  ties: number;
+  points_for: number;
+  points_against: number;
+  summary: TeamMetric[];
+  offense: TeamMetric[];
+  defense: TeamMetric[];
+  special_teams: TeamMetric[];
+  game_log: TeamGameLogRow[];
+};
+
+export function fetchTeamProfile(team: string, season: number) {
+  return getJson<TeamProfile>(`/teams/${encodeURIComponent(team)}/profile?season=${season}`);
+}

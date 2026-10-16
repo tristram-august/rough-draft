@@ -381,6 +381,46 @@ class TeamGameStat(Base):
     penalties: Mapped[int | None] = mapped_column(Integer, nullable=True)
     penalty_yards: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
+    # Team drill-down (0021). passing_air_yards counts all attempts, not just
+    # completions; sack_yards_lost is negative; passing_20 etc. count plays of N+ yards.
+    sacks_suffered: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    sack_yards_lost: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    passing_air_yards: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    passing_yards_after_catch: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    passing_first_downs: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    rushing_first_downs: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    passing_20: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    passing_40: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    rushing_20: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    rushing_40: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    fumbles_lost_total: Mapped[int | None] = mapped_column(Integer, nullable=True)  # incl. special teams
+    fumble_recovery_opp: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    def_pass_defended: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    def_safeties: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    special_teams_tds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    fg_long: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    fg_made_0_19: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    fg_made_20_29: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    fg_made_30_39: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    fg_made_40_49: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    fg_made_50_59: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    fg_made_60_: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    fg_missed_0_19: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    fg_missed_20_29: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    fg_missed_30_39: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    fg_missed_40_49: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    fg_missed_50_59: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    fg_missed_60_: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    pt_att: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    pt_yards: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    pt_net_yards: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    pt_inside_20: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    pt_touchback: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    punt_returns: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    punt_return_yards: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    kickoff_returns: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    kickoff_return_yards: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
     __table_args__ = (
         UniqueConstraint("game_id", "team", name="uq_team_game"),
         Index("ix_tgs_season_week", "season", "week"),
