@@ -245,6 +245,45 @@ export function fetchBoardProb(p: {
   return getJson<{ line: number; p_over: number }>(`/betting/board/prob?${q}`);
 }
 
+export type ScoreLine = {
+  n: number;
+  model_hits: number;
+  model_hit_rate: number | null;
+  under_hit_rate: number | null;
+  brier: number | null;
+  confident_n: number;
+  confident_hits: number;
+};
+
+export type ScoreCall = {
+  week: number;
+  name: string;
+  team: string;
+  opponent: string;
+  stat: string;
+  label: string;
+  line: number;
+  side: "over" | "under";
+  confidence: number;
+  actual: number;
+  hit: boolean;
+};
+
+export type Scorecard = {
+  season: number;
+  confident_threshold: number;
+  overall: ScoreLine;
+  weeks: (ScoreLine & { week: number; source: "snapshot" | "reconstructed" | "mixed"; pending: number; voids: number })[];
+  by_stat: (ScoreLine & { stat: string; label: string })[];
+  calibration: { lo: number; hi: number; n: number; predicted: number; over_rate: number }[];
+  best_calls: ScoreCall[];
+  worst_calls: ScoreCall[];
+};
+
+export function fetchScorecard(season: number) {
+  return getJson<Scorecard>(`/betting/scorecard?season=${season}`);
+}
+
 /** Matches the API's over_threshold: "over" means strictly more than the line. */
 export function overThreshold(line: number) {
   return Math.floor(line) + 1;

@@ -827,6 +827,38 @@ class PlayoffOdds(Base):
     )
 
 
+class PropPick(Base):
+    """One prop-board row as it stood before kickoff, graded after the game.
+    source='snapshot' rows were saved before the game; 'reconstructed' rows were
+    rebuilt later from pre-week data only (no results leak, but today's model
+    code and no late-scratch knowledge) -- see scripts/prop_scorecard.py."""
+    __tablename__ = "prop_pick"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    season: Mapped[int] = mapped_column(Integer)
+    week: Mapped[int] = mapped_column(Integer)
+    gsis_id: Mapped[str] = mapped_column(String(16))
+    name: Mapped[str] = mapped_column(String(128))
+    position: Mapped[str] = mapped_column(String(8))
+    team: Mapped[str] = mapped_column(String(8))
+    opponent: Mapped[str] = mapped_column(String(8))
+    stat: Mapped[str] = mapped_column(String(24))
+    line: Mapped[float] = mapped_column(Float)
+    projection: Mapped[float] = mapped_column(Float)
+    p_over: Mapped[float] = mapped_column(Float)
+    mean: Mapped[float] = mapped_column(Float)
+    source: Mapped[str] = mapped_column(String(16))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    actual: Mapped[float | None] = mapped_column(Float, nullable=True)
+    result: Mapped[str | None] = mapped_column(String(8), nullable=True)  # over / under / push / void
+    graded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("season", "week", "gsis_id", "stat", name="uq_prop_pick"),
+        Index("ix_prop_pick_season_week", "season", "week"),
+    )
+
+
 class PlayoffCalibration(Base):
     """Backtest of the playoff-odds model: past-season predictions bucketed by
     predicted P(make playoffs), against how often those teams actually made it."""

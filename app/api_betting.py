@@ -17,7 +17,7 @@ from app.betting.engine import STATS, PredictionContext, ReceiverGame, backtest,
 from app.betting.passing import PASSER_STATS, GameLevelContext, PasserGame
 from app.betting.rushing import RUSHER_STATS, RusherGame
 from app.db import db_session
-from app.models import Game, PlayerDim, PlayerGameStat, PlayerProjection
+from app.models import Game, PlayerDim, PlayerGameStat, PlayerProjection, PropPick
 
 router = APIRouter(prefix="/betting", tags=["betting"])
 
@@ -674,6 +674,11 @@ def _matchup_ranks(games: list, season: int, week: int, spec) -> tuple[dict[str,
     return {t: (i + 1, round(avgs[t], 2)) for i, t in enumerate(ordered)}, (round(league, 2) if league is not None else None)
 
 
+async def upcoming_board_week(session: AsyncSession, season: int) -> int:
+    played = [g.week for g in await _load_receiver_games(session, season) if g.season == season]
+    return max(played) + 1 if played else 1
+
+
 @router.get("/board", response_model=BoardOut)
 async def prop_board(
     season: int = Query(...),
@@ -681,16 +686,23 @@ async def prop_board(
     session: AsyncSession = Depends(db_session),
 ) -> BoardOut:
     if week is None:
-        played = [g.week for g in await _load_receiver_games(session, season) if g.season == season]
-        week = max(played) + 1 if played else 1
+        week = await upcoming_board_week(session, season)
     key = (season, week)
     cached = _board_cache.get(key)
     if cached and time.monotonic() - cached[0] < CACHE_SECONDS:
         return cached[1]
+    out = await build_board(session, season, week)
+    _board_cache[key] = (time.monotonic(), out)
+    return out
 
+
+async def build_board(session: AsyncSession, season: int, week: int, include_final: bool = False) -> BoardOut:
+    """Every projected player x stat for one week. Predictions only use games
+    before `week`, so include_final=True can rebuild a past week's board without
+    seeing its results (scripts/prop_scorecard.py does this for backfills)."""
     schedule: dict[str, tuple[str, bool]] = {}
     for g in (await session.execute(select(Game).where(Game.season == season, Game.week == week))).scalars():
-        if g.home_score is not None and g.away_score is not None:
+        if not include_final and g.home_score is not None and g.away_score is not None:
             continue  # already played -- nothing left to predict
         schedule[g.home_team] = (g.away_team, True)
         schedule[g.away_team] = (g.home_team, False)
@@ -751,15 +763,13 @@ async def prop_board(
                      for g in reversed(hist) if g.opponent == opponent],
             ))
 
-    out = BoardOut(
+    return BoardOut(
         season=season,
         week=week,
         stats=[BoardStat(key=k, label=v[0], positions=list(v[1])) for k, v in BOARD_STATS.items()],
         rows=rows,
         disclaimer=DISCLAIMER,
     )
-    _board_cache[key] = (time.monotonic(), out)
-    return out
 
 
 @router.get("/board/prob", response_model=BoardProbOut)
@@ -779,3 +789,131 @@ async def board_prob(
         raise HTTPException(status_code=404, detail="Not enough prior games for this player.")
     values, weights = ctx.predict(gsis_id, opponent.upper())
     return BoardProbOut(line=line, p_over=round(prob_for_stat(SPECS[stat], values, weights, over_threshold(line)), 4))
+
+
+# ── Scorecard: how the frozen board actually did ──────────────────────────────
+
+CONFIDENT = 0.65
+
+
+class ScoreLine(BaseModel):
+    n: int
+    model_hits: int
+    model_hit_rate: float | None
+    under_hit_rate: float | None  # baseline: take the under on everything
+    brier: float | None
+    confident_n: int
+    confident_hits: int
+
+
+class ScoreWeek(ScoreLine):
+    week: int
+    source: str  # snapshot / reconstructed / mixed
+    pending: int
+    voids: int
+
+
+class ScoreStat(ScoreLine):
+    stat: str
+    label: str
+
+
+class ScoreBucket(BaseModel):
+    lo: float
+    hi: float
+    n: int
+    predicted: float
+    over_rate: float
+
+
+class ScoreCall(BaseModel):
+    week: int
+    name: str
+    team: str
+    opponent: str
+    stat: str
+    label: str
+    line: float
+    side: str
+    confidence: float
+    actual: float
+    hit: bool
+
+
+class ScorecardOut(BaseModel):
+    season: int
+    confident_threshold: float
+    overall: ScoreLine
+    weeks: list[ScoreWeek]
+    by_stat: list[ScoreStat]
+    calibration: list[ScoreBucket]
+    best_calls: list[ScoreCall]
+    worst_calls: list[ScoreCall]
+
+
+def _score(picks: list[PropPick]) -> dict:
+    decided = [p for p in picks if p.result in ("over", "under")]
+    n = len(decided)
+    hits = sum((p.p_over >= 0.5) == (p.result == "over") for p in decided)
+    conf = [p for p in decided if max(p.p_over, 1 - p.p_over) >= CONFIDENT]
+    return dict(
+        n=n,
+        model_hits=hits,
+        model_hit_rate=round(hits / n, 4) if n else None,
+        under_hit_rate=round(sum(p.result == "under" for p in decided) / n, 4) if n else None,
+        brier=round(sum((p.p_over - (p.result == "over")) ** 2 for p in decided) / n, 4) if n else None,
+        confident_n=len(conf),
+        confident_hits=sum((p.p_over >= 0.5) == (p.result == "over") for p in conf),
+    )
+
+
+def _call(p: PropPick) -> ScoreCall:
+    side = "over" if p.p_over >= 0.5 else "under"
+    return ScoreCall(
+        week=p.week, name=p.name, team=p.team, opponent=p.opponent, stat=p.stat,
+        label=BOARD_STATS.get(p.stat, (p.stat,))[0], line=p.line, side=side,
+        confidence=round(max(p.p_over, 1 - p.p_over), 4), actual=p.actual or 0.0, hit=side == p.result,
+    )
+
+
+@router.get("/scorecard", response_model=ScorecardOut)
+async def scorecard(season: int = Query(...), session: AsyncSession = Depends(db_session)) -> ScorecardOut:
+    picks = (await session.execute(select(PropPick).where(PropPick.season == season))).scalars().all()
+    if not picks:
+        raise HTTPException(status_code=404, detail="No saved picks for that season yet")
+
+    weeks = []
+    for w in sorted({p.week for p in picks}):
+        wp = [p for p in picks if p.week == w]
+        sources = {p.source for p in wp}
+        weeks.append(ScoreWeek(
+            week=w, source=sources.pop() if len(sources) == 1 else "mixed",
+            pending=sum(p.result is None for p in wp), voids=sum(p.result == "void" for p in wp), **_score(wp),
+        ))
+
+    decided = [p for p in picks if p.result in ("over", "under")]
+    calibration = []
+    for lo in [i / 10 for i in range(10)]:
+        b = [p for p in decided if lo <= p.p_over < lo + 0.1 or (lo == 0.9 and p.p_over == 1.0)]
+        if b:
+            calibration.append(ScoreBucket(
+                lo=lo, hi=round(lo + 0.1, 1), n=len(b),
+                predicted=round(sum(p.p_over for p in b) / len(b), 4),
+                over_rate=round(sum(p.result == "over" for p in b) / len(b), 4),
+            ))
+
+    calls = sorted((_call(p) for p in decided), key=lambda c: -c.confidence)
+    return ScorecardOut(
+        season=season,
+        confident_threshold=CONFIDENT,
+        overall=ScoreLine(**_score(picks)),
+        weeks=weeks,
+        by_stat=[
+            ScoreStat(stat=k, label=v[0], **_score([p for p in picks if p.stat == k]))
+            for k, v in BOARD_STATS.items()
+            if any(p.stat == k for p in picks)
+        ],
+        calibration=calibration,
+        best_calls=[c for c in calls if c.hit][:8],
+        worst_calls=[c for c in calls if not c.hit][:8],
+    )

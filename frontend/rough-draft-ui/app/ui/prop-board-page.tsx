@@ -323,6 +323,9 @@ export function PropBoardPage() {
             {board.season} · Week {board.week} · {sorted.length.toLocaleString()} props
           </span>
         )}
+        <Link href="/betting/scorecard" className="ml-auto text-xs font-medium text-sky-400 hover:text-sky-300">
+          Model scorecard →
+        </Link>
       </div>
 
       {q.isError && (
