@@ -10,6 +10,7 @@ export const NAV_ITEMS = [
   { href: "/teams", label: "Team Stats" },
   { href: "/draft", label: "Rough Draft" },
   { href: "/picks", label: "Picks" },
+  { href: "/playoffs", label: "Playoffs" },
   { href: "/power", label: "Power Rankings" },
   { href: "/betting", label: "Player Props" },
 ] as const;

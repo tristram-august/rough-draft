@@ -756,6 +756,53 @@ class TeamGameLogRow(BaseModel):
     takeaways: int
 
 
+class PlayoffOddsHistoryPoint(BaseModel):
+    week: int
+    make_playoffs: float
+    win_division: float
+    win_super_bowl: float
+
+
+class PlayoffTeamOdds(BaseModel):
+    team: str
+    team_name: str | None = None
+    conference: str | None = None
+    division: str | None = None
+    elo: float
+    wins: float
+    losses: float
+    mean_wins: float
+    make_playoffs: float
+    win_division: float
+    first_seed: float
+    win_conference: float
+    win_super_bowl: float
+    seed_probs: list[float]
+    history: list[PlayoffOddsHistoryPoint]
+
+
+class PlayoffOddsOut(BaseModel):
+    season: int
+    week: int
+    weeks: list[int]
+    sims: int
+    updated_at: datetime
+    teams: list[PlayoffTeamOdds]
+
+
+class PlayoffCalibrationRow(BaseModel):
+    bucket_lo: float
+    bucket_hi: float
+    n: int
+    predicted: float
+    actual: float
+
+
+class PlayoffCalibrationOut(BaseModel):
+    seasons: str | None = None
+    rows: list[PlayoffCalibrationRow]
+
+
 class TeamProfileOut(BaseModel):
     team: str
     team_name: str | None = None

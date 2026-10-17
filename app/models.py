@@ -797,6 +797,51 @@ class GamePrediction(Base):
     vegas_correct: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
 
 
+class PlayoffOdds(Base):
+    """Monte Carlo playoff odds for one team, as of the end of `week` (0 =
+    preseason). Rebuilt by scripts/build_playoff_odds.py from Elo win
+    probabilities; one row per (season, week, team) so the odds history can
+    be charted week by week."""
+    __tablename__ = "playoff_odds"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    season: Mapped[int] = mapped_column(Integer)
+    week: Mapped[int] = mapped_column(Integer)
+    team: Mapped[str] = mapped_column(String(8))
+    elo: Mapped[float] = mapped_column(Float)
+    wins: Mapped[float] = mapped_column(Float)  # actual results so far (ties count 0.5)
+    losses: Mapped[float] = mapped_column(Float)
+    mean_wins: Mapped[float] = mapped_column(Float)  # projected final regular-season wins
+    make_playoffs: Mapped[float] = mapped_column(Float)
+    win_division: Mapped[float] = mapped_column(Float)
+    first_seed: Mapped[float] = mapped_column(Float)
+    win_conference: Mapped[float] = mapped_column(Float)
+    win_super_bowl: Mapped[float] = mapped_column(Float)
+    seed_probs: Mapped[str] = mapped_column(Text)  # JSON list, P(seed 1..7)
+    sims: Mapped[int] = mapped_column(Integer)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (
+        UniqueConstraint("season", "week", "team", name="uq_playoff_odds"),
+        Index("ix_playoff_odds_season_week", "season", "week"),
+    )
+
+
+class PlayoffCalibration(Base):
+    """Backtest of the playoff-odds model: past-season predictions bucketed by
+    predicted P(make playoffs), against how often those teams actually made it."""
+    __tablename__ = "playoff_calibration"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    bucket_lo: Mapped[float] = mapped_column(Float)
+    bucket_hi: Mapped[float] = mapped_column(Float)
+    n: Mapped[int] = mapped_column(Integer)
+    predicted: Mapped[float] = mapped_column(Float)
+    actual: Mapped[float] = mapped_column(Float)
+    seasons: Mapped[str] = mapped_column(String(32))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 class Post(Base):
     """A blog post, authored in markdown by a mod."""
     __tablename__ = "post"
