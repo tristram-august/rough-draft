@@ -189,3 +189,63 @@ export function fetchPlayerProp(gsisId: string, season: number, week: number, st
   });
   return getJson<PlayerProp>(`/betting/receiving-prop?${q}`);
 }
+
+export type BoardGame = { season: number; week: number; opponent: string; value: number };
+
+export type BoardRow = {
+  gsis_id: string;
+  name: string;
+  position: string;
+  team: string;
+  opponent: string;
+  home: boolean;
+  stat: StatKey;
+  projection: number;
+  line: number;
+  p_over: number;
+  mean: number;
+  games_used: number;
+  thin_sample: boolean;
+  matchup_rank: number | null;
+  matchup_allowed: number | null;
+  league_allowed: number | null;
+  recent: BoardGame[];
+  season_values: number[];
+  h2h: BoardGame[];
+};
+
+export type PropBoard = {
+  season: number;
+  week: number;
+  stats: { key: StatKey; label: string; positions: string[] }[];
+  rows: BoardRow[];
+  disclaimer: string;
+};
+
+export function fetchPropBoard(season: number) {
+  return getJson<PropBoard>(`/betting/board?season=${season}`);
+}
+
+export function fetchBoardProb(p: {
+  season: number;
+  week: number;
+  stat: StatKey;
+  gsisId: string;
+  opponent: string;
+  line: number;
+}) {
+  const q = new URLSearchParams({
+    season: String(p.season),
+    week: String(p.week),
+    stat: p.stat,
+    gsis_id: p.gsisId,
+    opponent: p.opponent,
+    line: String(p.line),
+  });
+  return getJson<{ line: number; p_over: number }>(`/betting/board/prob?${q}`);
+}
+
+/** Matches the API's over_threshold: "over" means strictly more than the line. */
+export function overThreshold(line: number) {
+  return Math.floor(line) + 1;
+}

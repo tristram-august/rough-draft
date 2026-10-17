@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import time
 
 import numpy as np
@@ -16,7 +17,7 @@ from app.betting.engine import STATS, PredictionContext, ReceiverGame, backtest,
 from app.betting.passing import PASSER_STATS, GameLevelContext, PasserGame
 from app.betting.rushing import RUSHER_STATS, RusherGame
 from app.db import db_session
-from app.models import Game, PlayerDim, PlayerGameStat
+from app.models import Game, PlayerDim, PlayerGameStat, PlayerProjection
 
 router = APIRouter(prefix="/betting", tags=["betting"])
 
@@ -37,6 +38,34 @@ GAME_LEVEL_CONTEXT = functools.partial(GameLevelContext, specs=GAME_LEVEL_SPECS)
 
 _cache: dict = {}
 _calibration_cache: dict = {}
+_context_cache: dict = {}
+_board_cache: dict = {}
+
+BOARD_STATS = {
+    # stat: (label, positions, FantasyPros projection key)
+    "pass_yards": ("Pass Yds", ("QB",), "pass_yds"),
+    "pass_attempts": ("Pass Att", ("QB",), "pass_att"),
+    "pass_tds": ("Pass TDs", ("QB",), "pass_tds"),
+    "interceptions": ("INTs", ("QB",), "pass_ints"),
+    "rush_yards": ("Rush Yds", ("RB",), "rush_yds"),
+    "rush_attempts": ("Rush Att", ("RB",), "rush_att"),
+    "rush_tds": ("Rush TDs", ("RB",), "rush_tds"),
+    "rec_yards": ("Rec Yds", ("WR", "TE"), "rec_yds"),
+    "receptions": ("Receptions", ("WR", "TE"), "rec_rec"),
+    "rec_tds": ("Rec TDs", ("WR", "TE"), "rec_tds"),
+}
+BOARD_RECENT = 10
+# A player only gets board rows if FantasyPros projects a real role -- otherwise
+# backups with ~0 projections get 0.5 lines the model clears ~100% of the time.
+BOARD_ROLE_GATE = {"QB": ("pass_att", 20.0), "RB": ("rush_att", 6.0), "WR": ("rec_rec", 2.0), "TE": ("rec_rec", 2.0)}
+
+# player_game_stat still labels the Rams "LA" while `game` uses "LAR"; without
+# this, Rams players never match a scheduled game and nobody gets a Rams opponent adjustment.
+TEAM_CODE_FIXES = {"LA": "LAR", "STL": "LAR", "OAK": "LV", "SD": "LAC"}
+
+
+def _team(code: str | None) -> str | None:
+    return TEAM_CODE_FIXES.get(code, code) if code else code
 
 
 class CalibrationBucket(BaseModel):
@@ -182,8 +211,8 @@ async def _load_receiver_games(session: AsyncSession, last_season: int) -> list[
             season=r.season,
             week=r.week,
             player_id=r.player_gsis_id,
-            team=r.team,
-            opponent=r.opponent_team,
+            team=_team(r.team),
+            opponent=_team(r.opponent_team),
             targets=float(r.targets),
             receptions=float(r.receptions or 0),
             yards=float(r.rec_yards or 0),
@@ -227,8 +256,8 @@ async def _load_passer_games(session: AsyncSession, last_season: int) -> list[Pa
             season=r.season,
             week=r.week,
             player_id=r.player_gsis_id,
-            team=r.team,
-            opponent=r.opponent_team,
+            team=_team(r.team),
+            opponent=_team(r.opponent_team),
             attempts=float(r.pass_attempts),
             pass_yards=float(r.pass_yards or 0),
             pass_tds=float(r.pass_tds or 0),
@@ -271,8 +300,8 @@ async def _load_rusher_games(session: AsyncSession, last_season: int) -> list[Ru
             season=r.season,
             week=r.week,
             player_id=r.player_gsis_id,
-            team=r.team,
-            opponent=r.opponent_team,
+            team=_team(r.team),
+            opponent=_team(r.opponent_team),
             attempts=float(r.rush_attempts),
             yards=float(r.rush_yards or 0),
             tds=float(r.rush_tds or 0),
@@ -449,7 +478,7 @@ async def player_prop(
         await session.execute(
             select(PlayerGameStat.week, func.sum(PlayerGameStat.rush_attempts).label("carries"))
             .where(
-                PlayerGameStat.team == team,
+                PlayerGameStat.team.in_([team, *[raw for raw, fixed in TEAM_CODE_FIXES.items() if fixed == team]]),
                 PlayerGameStat.season == season,
                 PlayerGameStat.season_type == "REG",
                 PlayerGameStat.week < week,
@@ -561,3 +590,192 @@ async def player_prop(
         context=context,
         disclaimer=DISCLAIMER,
     )
+
+
+# ── Prop board: every projected player x stat for one week ────────────────────
+
+class BoardGame(BaseModel):
+    season: int
+    week: int
+    opponent: str
+    value: float
+
+
+class BoardRow(BaseModel):
+    gsis_id: str
+    name: str
+    position: str
+    team: str
+    opponent: str
+    home: bool
+    stat: str
+    projection: float
+    line: float
+    p_over: float
+    mean: float
+    games_used: int
+    thin_sample: bool
+    matchup_rank: int | None  # 1 = opponent allows the most of this stat per player-game
+    matchup_allowed: float | None
+    league_allowed: float | None
+    recent: list[BoardGame]  # newest first, last BOARD_RECENT games across seasons
+    season_values: list[float]
+    h2h: list[BoardGame]
+
+
+class BoardStat(BaseModel):
+    key: str
+    label: str
+    positions: list[str]
+
+
+class BoardOut(BaseModel):
+    season: int
+    week: int
+    stats: list[BoardStat]
+    rows: list[BoardRow]
+    disclaimer: str
+
+
+class BoardProbOut(BaseModel):
+    line: float
+    p_over: float
+
+
+def default_line(projection: float) -> float:
+    """Half point just under the projection (102.8 -> 102.5, 0.77 TDs -> 0.5), like a typical DFS pick'em line."""
+    return float(np.floor(projection)) + 0.5
+
+
+def over_threshold(line: float) -> int:
+    """'Over' means strictly more than the line: over 24.5 and over 24 both need 25+ (exactly 24 is a push)."""
+    return int(np.floor(line)) + 1
+
+
+async def _cached_context(session: AsyncSession, season: int, week: int, stat: str):
+    key = (season, week, stat)
+    cached = _context_cache.get(key)
+    if cached and time.monotonic() - cached[0] < CACHE_SECONDS:
+        return cached[1], cached[2]
+    games = await _games_for(session, season, GROUP_OF[stat])
+    ctx = await asyncio.to_thread(_context_for, games, season, week, stat)
+    _context_cache[key] = (time.monotonic(), ctx, games)
+    return ctx, games
+
+
+def _matchup_ranks(games: list, season: int, week: int, spec) -> tuple[dict[str, tuple[int, float]], float | None]:
+    allowed: dict[str, list[float]] = {}
+    prior = [g for g in games if g.season == season and g.week < week]
+    for g in prior:
+        allowed.setdefault(g.opponent, []).append(spec.value(g))
+    avgs = {team: sum(v) / len(v) for team, v in allowed.items() if v}
+    ordered = sorted(avgs, key=lambda t: -avgs[t])
+    league = sum(spec.value(g) for g in prior) / len(prior) if prior else None
+    return {t: (i + 1, round(avgs[t], 2)) for i, t in enumerate(ordered)}, (round(league, 2) if league is not None else None)
+
+
+@router.get("/board", response_model=BoardOut)
+async def prop_board(
+    season: int = Query(...),
+    week: int | None = Query(default=None, ge=1, le=18),
+    session: AsyncSession = Depends(db_session),
+) -> BoardOut:
+    if week is None:
+        played = [g.week for g in await _load_receiver_games(session, season) if g.season == season]
+        week = max(played) + 1 if played else 1
+    key = (season, week)
+    cached = _board_cache.get(key)
+    if cached and time.monotonic() - cached[0] < CACHE_SECONDS:
+        return cached[1]
+
+    schedule: dict[str, tuple[str, bool]] = {}
+    for g in (await session.execute(select(Game).where(Game.season == season, Game.week == week))).scalars():
+        if g.home_score is not None and g.away_score is not None:
+            continue  # already played -- nothing left to predict
+        schedule[g.home_team] = (g.away_team, True)
+        schedule[g.away_team] = (g.home_team, False)
+
+    projections = (
+        await session.execute(
+            select(PlayerProjection).where(
+                PlayerProjection.season == season,
+                PlayerProjection.week == week,
+                PlayerProjection.gsis_id.is_not(None),
+                PlayerProjection.position.in_(["QB", "RB", "WR", "TE"]),
+            )
+        )
+    ).scalars().all()
+    proj_stats = {}
+    for p in projections:
+        stats = json.loads(p.stats_json or "{}")
+        gate_key, gate_min = BOARD_ROLE_GATE[p.position]
+        if (stats.get(gate_key) or 0) >= gate_min:
+            proj_stats[p.gsis_id] = (p.position, stats)
+    names = dict(
+        (await session.execute(
+            select(PlayerDim.gsis_id, PlayerDim.display_name).where(PlayerDim.gsis_id.in_(list(proj_stats)))
+        )).all()
+    ) if proj_stats else {}
+
+    rows: list[BoardRow] = []
+    for stat, (_, positions, proj_key) in BOARD_STATS.items():
+        spec = SPECS[stat]
+        ctx, games = await _cached_context(session, season, week, stat)
+        ranks, league = _matchup_ranks(games, season, week, spec)
+        for gsis_id, (position, stats) in proj_stats.items():
+            projection = stats.get(proj_key)
+            if position not in positions or projection is None:
+                continue
+            hist = ctx.history.get(gsis_id, [])
+            if len(hist) < 3:
+                continue
+            team = hist[-1].team
+            if team not in schedule:
+                continue  # bye, or this week's game is already final
+            opponent, home = schedule[team]
+            line = default_line(float(projection))
+            values, weights = ctx.predict(gsis_id, opponent)
+            rank = ranks.get(opponent)
+            rows.append(BoardRow(
+                gsis_id=gsis_id, name=names.get(gsis_id) or gsis_id, position=position, team=team,
+                opponent=opponent, home=home, stat=stat, projection=round(float(projection), 2), line=line,
+                p_over=round(prob_for_stat(spec, values, weights, over_threshold(line)), 4),
+                mean=round(float(np.average(values, weights=weights)), 2),
+                games_used=len(hist), thin_sample=len(hist) < THIN_SAMPLE_GAMES,
+                matchup_rank=rank[0] if rank else None, matchup_allowed=rank[1] if rank else None,
+                league_allowed=league,
+                recent=[BoardGame(season=g.season, week=g.week, opponent=g.opponent, value=spec.value(g))
+                        for g in reversed(hist[-BOARD_RECENT:])],
+                season_values=[spec.value(g) for g in hist if g.season == season],
+                h2h=[BoardGame(season=g.season, week=g.week, opponent=g.opponent, value=spec.value(g))
+                     for g in reversed(hist) if g.opponent == opponent],
+            ))
+
+    out = BoardOut(
+        season=season,
+        week=week,
+        stats=[BoardStat(key=k, label=v[0], positions=list(v[1])) for k, v in BOARD_STATS.items()],
+        rows=rows,
+        disclaimer=DISCLAIMER,
+    )
+    _board_cache[key] = (time.monotonic(), out)
+    return out
+
+
+@router.get("/board/prob", response_model=BoardProbOut)
+async def board_prob(
+    season: int = Query(...),
+    week: int = Query(..., ge=1, le=18),
+    stat: str = Query(...),
+    gsis_id: str = Query(...),
+    opponent: str = Query(..., max_length=8),
+    line: float = Query(..., ge=0, le=1000),
+    session: AsyncSession = Depends(db_session),
+) -> BoardProbOut:
+    if stat not in BOARD_STATS:
+        raise HTTPException(status_code=400, detail=f"Unknown stat: {stat}")
+    ctx, _ = await _cached_context(session, season, week, stat)
+    if len(ctx.history.get(gsis_id, [])) < 3:
+        raise HTTPException(status_code=404, detail="Not enough prior games for this player.")
+    values, weights = ctx.predict(gsis_id, opponent.upper())
+    return BoardProbOut(line=line, p_over=round(prob_for_stat(SPECS[stat], values, weights, over_threshold(line)), 4))

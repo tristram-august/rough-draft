@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import {
   GAME_LOG_COLUMNS,
@@ -34,12 +35,20 @@ const VOLUME_LABEL: Record<StatGroup, string> = {
   passing: "Pass attempts",
 };
 
-export default function ReceivingPropPage() {
+export default function ReceivingPropPage({
+  initialPlayer = null,
+  initialStat = "rec_yards",
+  initialLine = null,
+}: {
+  initialPlayer?: string | null;
+  initialStat?: StatKey;
+  initialLine?: number | null;
+} = {}) {
   const season = DEFAULT_SEASON;
   const [query, setQuery] = React.useState("");
-  const [selected, setSelected] = React.useState<string | null>(null);
-  const [stat, setStat] = React.useState<StatKey>("rec_yards");
-  const [line, setLine] = React.useState<number | null>(null);
+  const [selected, setSelected] = React.useState<string | null>(initialPlayer);
+  const [stat, setStat] = React.useState<StatKey>(initialStat);
+  const [line, setLine] = React.useState<number | null>(initialLine);
   const [showCalibration, setShowCalibration] = React.useState(false);
 
   const statOption = STAT_OPTIONS.find((o) => o.key === stat) ?? STAT_OPTIONS[0];
@@ -79,12 +88,20 @@ export default function ReceivingPropPage() {
   });
   const calibration = calibrationQuery.data;
 
+  // Reset only on real changes, so a player/stat/line passed in from the board survives the first render.
+  const prevGroup = React.useRef(group);
   React.useEffect(() => {
+    if (prevGroup.current === group) return;
+    prevGroup.current = group;
     setSelected(null);
     setQuery("");
   }, [group]);
 
+  const prevPick = React.useRef(`${selected}|${stat}`);
   React.useEffect(() => {
+    const pick = `${selected}|${stat}`;
+    if (prevPick.current === pick) return;
+    prevPick.current = pick;
     setLine(null);
   }, [selected, stat]);
 
@@ -97,7 +114,10 @@ export default function ReceivingPropPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-6 px-4 py-8">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-400">Player Props</p>
+        <Link href="/betting" className="text-xs text-slate-500 transition-colors hover:text-slate-300">
+          ← Prop board
+        </Link>
+        <p className="mt-3 text-xs font-semibold uppercase tracking-[0.2em] text-sky-400">Player Props</p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight">Player props</h1>
         <p className="mt-2 text-sm text-slate-400">
           Pick a player and a stat, then move the line to see how likely they are to clear it, based on

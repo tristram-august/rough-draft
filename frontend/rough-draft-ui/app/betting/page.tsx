@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
-import ReceivingPropPage from "../ui/receiving-prop-page";
+import { PropBoardPage } from "../ui/prop-board-page";
 
 export const metadata: Metadata = {
-  title: "Player Props",
-  description: "Receiving-yards probabilities built from game-by-game history and opponent defense.",
+  title: "Prop Board",
+  description: "Every player prop for the week with model odds, hit rates and matchups.",
   robots: { index: false, follow: false },
 };
 
 export default function Page() {
-  return <ReceivingPropPage />;
+  return <PropBoardPage />;
 }
