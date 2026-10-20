@@ -28,6 +28,8 @@ VIEWPORT = {"width": 1080, "height": 1350}
 DEVICE_SCALE_FACTOR = 2
 READY_SELECTOR = '[data-slide-ready="true"]'
 READY_TIMEOUT_MS = 15_000
+# Rendering against `next dev` shows Next's floating dev badge; keep it out of the PNGs.
+HIDE_DEV_OVERLAY = "nextjs-portal { display: none !important; }"
 DEFAULT_LIMIT = 6
 
 
@@ -42,8 +44,9 @@ def parse_args() -> argparse.Namespace:
     p.add_argument(
         "--min-projected",
         type=float,
-        default=30.0,
-        help="Only players projected at least this many points are eligible for the Met-projection slide.",
+        default=None,
+        help="Only players projected at least this many points are eligible for the Met-projection slide "
+        "(default 30 for --season-to-date, 10 for a single week -- almost nobody is projected 30 in one game).",
     )
     p.add_argument("--no-met", action="store_true", help="Skip the Closest-to-Projection slide.")
     p.add_argument("--spotlight", default=None, help="gsis_id to feature; defaults to the top overperformer.")
@@ -94,6 +97,8 @@ def build_plan(args: argparse.Namespace) -> list[tuple[str, str]]:
 
 def main() -> None:
     args = parse_args()
+    if args.min_projected is None:
+        args.min_projected = 30.0 if args.season_to_date else 10.0
     default_dir = f"output/social/week_{args.week}" if args.week else "output/social/season"
     out_dir = Path(args.out_dir or default_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -106,6 +111,7 @@ def main() -> None:
         for filename, url in plan:
             page.goto(url, wait_until="networkidle")
             page.wait_for_selector(READY_SELECTOR, timeout=READY_TIMEOUT_MS)
+            page.add_style_tag(content=HIDE_DEV_OVERLAY)
             out_path = out_dir / filename
             page.screenshot(path=str(out_path))
             print(f"  {filename}  <-  {url}")

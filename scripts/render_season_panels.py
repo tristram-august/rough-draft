@@ -67,6 +67,7 @@ def main() -> None:
             page.goto(url, wait_until="networkidle")
             panel = page.locator(READY_SELECTOR)
             panel.wait_for(state="visible", timeout=READY_TIMEOUT_MS)
+            page.add_style_tag(content="nextjs-portal { display: none !important; }")  # Next dev badge
             out_path = out_dir / f"season_{name}.png"
             panel.screenshot(path=str(out_path))
             print(f"  season_{name}.png  <-  {url}")
