@@ -17,7 +17,7 @@ import argparse
 import asyncio
 from datetime import datetime, timezone
 
-from sqlalchemy import or_, select
+from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 
 from app.api_betting import build_board, upcoming_board_week
@@ -40,6 +40,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--week", type=int, default=None, help="Week to snapshot (defaults to the upcoming week).")
     p.add_argument("--reconstruct", type=str, default=None, help="Week or range, e.g. 3 or 1-5.")
     p.add_argument("--grade", action="store_true")
+    p.add_argument("--regrade-week", type=int, default=None, help="Clear one week's grades first, then --grade it again.")
     return p.parse_args()
 
 
@@ -107,10 +108,21 @@ async def grade(session, season: int) -> None:
             )
         ).scalars()
     }
+    # A week with final scores but no player stats yet means the stats ingest
+    # hasn't run -- grading then would void every pick, so wait instead.
+    weeks_with_stats = {w for w, _ in stats} | set(
+        (await session.execute(
+            select(PlayerGameStat.week).where(PlayerGameStat.season == season, PlayerGameStat.week.in_(weeks)).distinct()
+        )).scalars()
+    )
+    for w in weeks:
+        if w not in weeks_with_stats and any(fw == w for fw, _ in final_teams):
+            print(f"Week {w}: games are final but no player stats are loaded yet -- skipping, run the stats ingest first")
+
     now = datetime.now(timezone.utc)
     graded = voids = 0
     for p in picks:
-        if (p.week, p.team) not in final_teams:
+        if (p.week, p.team) not in final_teams or p.week not in weeks_with_stats:
             continue
         row = stats.get((p.week, p.gsis_id))
         if row is None:
@@ -133,7 +145,15 @@ async def main() -> None:
             await reconstruct(session, args.season, list(range(int(lo), int(hi or lo) + 1)))
         if args.snapshot:
             await snapshot(session, args.season, args.week)
-        if args.grade:
+        if args.regrade_week is not None:
+            await session.execute(
+                update(PropPick)
+                .where(PropPick.season == args.season, PropPick.week == args.regrade_week)
+                .values(result=None, actual=None, graded_at=None)
+            )
+            await session.commit()
+            print(f"Cleared grades for {args.season} week {args.regrade_week}")
+        if args.grade or args.regrade_week is not None:
             await grade(session, args.season)
 
 
