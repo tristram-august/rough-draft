@@ -9,7 +9,7 @@ export const NAV_ITEMS = [
   { href: "/fantasy", label: "Fantasy" },
   { href: "/teams", label: "Team Stats" },
   { href: "/draft", label: "Rough Draft" },
-  { href: "/picks", label: "Picks" },
+  { href: "/schedule", label: "Schedule" },
   { href: "/playoffs", label: "Playoffs" },
   { href: "/power", label: "Power Rankings" },
   { href: "/betting", label: "Player Props" },

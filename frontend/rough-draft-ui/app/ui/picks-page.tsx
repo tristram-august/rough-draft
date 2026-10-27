@@ -11,14 +11,25 @@ import { MatchupStatsButton } from "./matchup-stats-button";
 import {
   fetchPickLeaderboard,
   fetchPredictionAccuracy,
+  fetchScheduleCalendar,
   fetchSlate,
   submitPick,
+  weekLabel,
+  type ScheduleWeek,
   type SlateGame,
 } from "../lib/picks";
+
+const selectClass =
+  "rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-sm font-medium text-slate-300 outline-none transition-colors focus:border-slate-500";
+
+// Off for 2026: the page is a schedule/matchup view. Flip back on to restore
+// pick buttons, community splits, results and standings (backend is untouched).
+const PICKS_ENABLED = false;
 
 function TeamButton({
   abbrev,
   name,
+  record,
   score,
   picked,
   locked,
@@ -28,6 +39,7 @@ function TeamButton({
 }: {
   abbrev: string;
   name: string | null;
+  record: string | null;
   score: number | null;
   picked: boolean;
   locked: boolean;
@@ -55,13 +67,13 @@ function TeamButton({
     borderAlpha = "B3"; // ~70%
   }
 
+  const interactive = PICKS_ENABLED && !locked;
+  const Tag = PICKS_ENABLED ? "button" : "div";
   return (
-    <button
-      type="button"
-      onClick={onPick}
-      disabled={locked}
+    <Tag
+      {...(PICKS_ENABLED ? { type: "button" as const, onClick: onPick, disabled: locked } : {})}
       className={`relative flex-1 overflow-hidden rounded-xl border px-3 py-2.5 text-left transition-[filter] ${
-        locked ? "" : "hover:brightness-125"
+        interactive ? "hover:brightness-125" : ""
       }`}
       style={{ backgroundColor: `${color}${bgAlpha}`, borderColor: `${color}${borderAlpha}` }}
     >
@@ -76,12 +88,19 @@ function TeamButton({
       )}
       <span className="relative flex items-center justify-between gap-2">
         <span className="min-w-0">
-          <span
-            className={`block truncate text-sm font-medium ${
-              isFinalLoser ? "text-slate-400" : "text-slate-100"
-            }`}
-          >
-            {name ?? abbrev}
+          <span className="flex items-baseline gap-1.5">
+            <span
+              className={`truncate text-sm font-medium ${
+                isFinalLoser ? "text-slate-400" : "text-slate-100"
+              }`}
+            >
+              {name ?? abbrev}
+            </span>
+            {record && record !== "0-0" && (
+              <span className="shrink-0 text-[11px] tabular-nums text-slate-400" title="Record going into this game">
+                {record}
+              </span>
+            )}
           </span>
           {sharePct != null && (
             <span className="text-[10px] text-slate-400">{Math.round(sharePct)}% picked</span>
@@ -100,7 +119,7 @@ function TeamButton({
           {picked && <span className="text-[10px] font-semibold text-sky-400">PICK</span>}
         </span>
       </span>
-    </button>
+    </Tag>
   );
 }
 
@@ -108,12 +127,14 @@ function GameRow({
   game,
   onPick,
   pending,
+  showMatchup,
 }: {
   game: SlateGame;
   onPick: (team: string) => void;
   pending: boolean;
+  showMatchup: boolean;
 }) {
-  const total = game.split.total;
+  const total = PICKS_ENABLED ? game.split.total : 0;
   const awayPct = total > 0 ? (game.split.away / total) * 100 : null;
   const homePct = total > 0 ? (game.split.home / total) * 100 : null;
   const spread = spreadLabel(game);
@@ -127,8 +148,9 @@ function GameRow({
         )
       : null;
 
-  const resultBadge =
-    game.your_result === "win"
+  const resultBadge = !PICKS_ENABLED
+    ? null
+    : game.your_result === "win"
       ? { label: "WON", cls: "border-emerald-800/60 bg-emerald-950/30 text-emerald-400" }
       : game.your_result === "loss"
         ? { label: "LOST", cls: "border-rose-900/60 bg-rose-950/30 text-rose-400" }
@@ -168,7 +190,7 @@ function GameRow({
           )}
           {game.final ? (
             <span className="text-slate-600">Final</span>
-          ) : game.locked ? (
+          ) : PICKS_ENABLED && game.locked ? (
             <span className="text-amber-500/80">Locked</span>
           ) : null}
         </span>
@@ -178,8 +200,9 @@ function GameRow({
         <TeamButton
           abbrev={game.away_team}
           name={game.away_name}
+          record={game.away_record}
           score={game.away_score}
-          picked={game.your_pick === game.away_team}
+          picked={PICKS_ENABLED && game.your_pick === game.away_team}
           locked={game.locked}
           isWinner={game.winner ? game.winner === game.away_team : null}
           sharePct={awayPct}
@@ -188,8 +211,9 @@ function GameRow({
         <TeamButton
           abbrev={game.home_team}
           name={game.home_name}
+          record={game.home_record}
           score={game.home_score}
-          picked={game.your_pick === game.home_team}
+          picked={PICKS_ENABLED && game.your_pick === game.home_team}
           locked={game.locked}
           isWinner={game.winner ? game.winner === game.home_team : null}
           sharePct={homePct}
@@ -197,15 +221,17 @@ function GameRow({
         />
       </div>
 
-      <div className="mt-2 flex justify-center">
-        <MatchupStatsButton
-          gameId={game.game_id}
-          awayTeam={game.away_team}
-          homeTeam={game.home_team}
-          awayName={game.away_name}
-          homeName={game.home_name}
-        />
-      </div>
+      {showMatchup && (
+        <div className="mt-2 flex justify-center">
+          <MatchupStatsButton
+            gameId={game.game_id}
+            awayTeam={game.away_team}
+            homeTeam={game.home_team}
+            awayName={game.away_name}
+            homeName={game.home_name}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -331,31 +357,55 @@ function ModelAccuracyPanel() {
   );
 }
 
-function WeekNav({
+function ScheduleNav({
+  season,
   week,
-  canPrev,
-  canNext,
-  onPrev,
-  onNext,
+  seasons,
+  weeks,
+  onChange,
 }: {
-  week: number | null;
-  canPrev: boolean;
-  canNext: boolean;
-  onPrev: () => void;
-  onNext: () => void;
+  season: number;
+  week: number;
+  seasons: number[];
+  weeks: ScheduleWeek[];
+  onChange: (season: number, week: number) => void;
 }) {
   const btnClass =
     "rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-1.5 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-slate-900/60";
+  const idx = weeks.findIndex((w) => w.week === week);
   return (
-    <div className="flex items-center gap-2">
-      <button type="button" onClick={onPrev} disabled={!canPrev} className={btnClass} aria-label="Previous week">
-        ← Prev
+    <div className="flex flex-wrap items-center gap-2">
+      <select
+        aria-label="Season"
+        value={season}
+        onChange={(e) => onChange(Number(e.target.value), 1)}
+        className={selectClass}
+      >
+        {seasons.map((s) => (
+          <option key={s} value={s}>{s}</option>
+        ))}
+      </select>
+      <button type="button" onClick={() => onChange(season, weeks[idx - 1].week)} disabled={idx <= 0} className={btnClass} aria-label="Previous week">
+        ←
       </button>
-      <span className="min-w-[4.5rem] text-center text-sm tabular-nums text-slate-400">
-        {week != null ? `Week ${week}` : ""}
-      </span>
-      <button type="button" onClick={onNext} disabled={!canNext} className={btnClass} aria-label="Next week">
-        Next →
+      <select
+        aria-label="Week"
+        value={week}
+        onChange={(e) => onChange(season, Number(e.target.value))}
+        className={selectClass}
+      >
+        {weeks.map((w) => (
+          <option key={w.week} value={w.week}>{weekLabel(w)}</option>
+        ))}
+      </select>
+      <button
+        type="button"
+        onClick={() => onChange(season, weeks[idx + 1].week)}
+        disabled={idx < 0 || idx >= weeks.length - 1}
+        className={btnClass}
+        aria-label="Next week"
+      >
+        →
       </button>
     </div>
   );
@@ -379,14 +429,13 @@ export default function PicksPage() {
   const slate = slateQuery.data;
   const games = slate?.games ?? [];
 
-  // 18 regular-season weeks + wild card/divisional/conference/Super Bowl
-  // (19-22) — the schedule's own week numbering already runs straight
-  // through the postseason, so this is just where it structurally stops.
-  const LAST_WEEK = 22;
-  function goToWeek(delta: number) {
-    if (slate?.season == null || slate.week == null) return;
-    setManualSlate({ season: slate.season, week: slate.week + delta });
-  }
+  const calendarQuery = useQuery({ queryKey: ["schedule-calendar"], queryFn: fetchScheduleCalendar });
+  const calendar = calendarQuery.data ?? [];
+  const latestSeason = calendar[0]?.season ?? null;
+  const seasonWeeks = calendar.find((c) => c.season === slate?.season)?.weeks ?? [];
+  const isPastSeason = slate?.season != null && latestSeason != null && slate.season < latestSeason;
+  const slateLabel =
+    slate?.week != null ? weekLabel({ week: slate.week, game_type: slate.game_type }) : null;
 
   const mutation = useMutation({
     mutationFn: ({ gameId, team }: { gameId: string; team: string }) =>
@@ -408,17 +457,25 @@ export default function PicksPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       <PageHeader
-        eyebrow="Picks"
-        title={slate?.week != null ? `Week ${slate.week} picks` : "Game picks"}
-        subtitle="Pick every game straight up. Picks lock at kickoff and grade themselves as scores come in."
+        eyebrow={PICKS_ENABLED ? "Picks" : "Schedule"}
+        title={
+          PICKS_ENABLED
+            ? slate?.week != null ? `Week ${slate.week} picks` : "Game picks"
+            : slateLabel ? `${slate?.season} ${slateLabel}` : "Schedule"
+        }
+        subtitle={
+          PICKS_ENABLED
+            ? "Pick every game straight up. Picks lock at kickoff and grade themselves as scores come in."
+            : "Every game of the week with kickoff times, the betting line, the Elo model's favorite and a head-to-head matchup breakdown."
+        }
       >
-        {slate?.week != null && (
-          <WeekNav
+        {slate?.season != null && slate.week != null && seasonWeeks.length > 0 && (
+          <ScheduleNav
+            season={slate.season}
             week={slate.week}
-            canPrev={slate.week > 1}
-            canNext={slate.week < LAST_WEEK}
-            onPrev={() => goToWeek(-1)}
-            onNext={() => goToWeek(1)}
+            seasons={calendar.map((c) => c.season)}
+            weeks={seasonWeeks}
+            onChange={(season, week) => setManualSlate({ season, week })}
           />
         )}
       </PageHeader>
@@ -429,7 +486,7 @@ export default function PicksPage() {
         </div>
       )}
 
-      {!user && (
+      {PICKS_ENABLED && !user && (
         <p className="mb-4 text-xs text-slate-500">
           Picking as a guest — sign in to keep your record across devices.
         </p>
@@ -445,14 +502,17 @@ export default function PicksPage() {
       {games.length > 0 && (
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">
-            <p className="mb-3 text-xs text-slate-500">
-              {madeCount} of {games.length} picked
-            </p>
+            {PICKS_ENABLED && (
+              <p className="mb-3 text-xs text-slate-500">
+                {madeCount} of {games.length} picked
+              </p>
+            )}
             <div className="space-y-2.5">
               {games.map((game) => (
                 <GameRow
                   key={game.game_id}
                   game={game}
+                  showMatchup={!isPastSeason}
                   pending={pendingGame === game.game_id}
                   onPick={(team) => mutation.mutate({ gameId: game.game_id, team })}
                 />
@@ -461,7 +521,7 @@ export default function PicksPage() {
           </div>
 
           <div className="space-y-6">
-            {slate?.season != null && (
+            {PICKS_ENABLED && slate?.season != null && (
               <StandingsPanel season={slate.season} week={slate.week} token={token} />
             )}
             <ModelAccuracyPanel />

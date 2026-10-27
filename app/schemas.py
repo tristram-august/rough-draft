@@ -544,6 +544,10 @@ class SlateGameOut(GameOut):
     winner: str | None = None      # set once final; None on a tie
     your_result: str | None = None  # "win" | "loss" | "push" once graded
 
+    # Record going into this game ("4-2", "4-2-1"); regular-season record for playoff games.
+    away_record: str | None = None
+    home_record: str | None = None
+
     # Elo model's pre-game prediction (see app/elo.py), when one exists.
     model_home_win_prob: float | None = None
     model_favorite: str | None = None
@@ -559,6 +563,16 @@ class PredictionAccuracyOut(BaseModel):
     model_graded: int
     vegas_correct: int
     vegas_graded: int
+
+
+class ScheduleWeek(BaseModel):
+    week: int
+    game_type: str  # REG / WC / DIV / CON / SB
+
+
+class ScheduleSeason(BaseModel):
+    season: int
+    weeks: list[ScheduleWeek]
 
 
 class SlateOut(BaseModel):

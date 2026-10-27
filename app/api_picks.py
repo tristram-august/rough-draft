@@ -22,6 +22,8 @@ from app.schemas import (
     PickLeaderRow,
     PickLeaderboardOut,
     PickSplitOut,
+    ScheduleSeason,
+    ScheduleWeek,
     SlateGameOut,
     SlateOut,
 )
@@ -115,6 +117,25 @@ async def _resolve_slate(session: AsyncSession, season: int | None, week: int | 
     return int(row[0]), int(row[1]) if row[1] is not None else None
 
 
+@router.get("/picks/calendar", response_model=list[ScheduleSeason])
+async def picks_calendar(session: AsyncSession = Depends(db_session)) -> list[ScheduleSeason]:
+    """Every season on the schedule (newest first) with its weeks, so the
+    Schedule tab can browse past years -- playoff week numbers differ by era
+    (18-21 before the 2021 expansion, 19-22 after)."""
+    rows = (
+        await session.execute(
+            select(Game.season, Game.week, func.max(Game.game_type))
+            .where(Game.week.is_not(None))
+            .group_by(Game.season, Game.week)
+            .order_by(Game.season.desc(), Game.week)
+        )
+    ).all()
+    by_season: dict[int, list[ScheduleWeek]] = {}
+    for season, week, game_type in rows:
+        by_season.setdefault(int(season), []).append(ScheduleWeek(week=int(week), game_type=game_type or "REG"))
+    return [ScheduleSeason(season=s, weeks=w) for s, w in by_season.items()]
+
+
 @router.get("/picks/slate", response_model=SlateOut)
 async def picks_slate(
     season: int | None = Query(default=None),
@@ -176,6 +197,28 @@ async def picks_slate(
         ).scalars()
     }
 
+    # Records going into this slate: regular-season games from earlier weeks,
+    # or the whole regular season once we're in the playoffs.
+    record_filters = [
+        Game.season == season,
+        Game.game_type == "REG",
+        Game.home_score.is_not(None),
+        Game.away_score.is_not(None),
+    ]
+    if games[0].game_type == "REG":
+        record_filters.append(Game.week < week)
+    tally: dict[str, list[int]] = {}
+    for home, away, hs, as_ in (
+        await session.execute(select(Game.home_team, Game.away_team, Game.home_score, Game.away_score).where(*record_filters))
+    ).all():
+        for team, mine, theirs in ((home, hs, as_), (away, as_, hs)):
+            wlt = tally.setdefault(team, [0, 0, 0])
+            wlt[0 if mine > theirs else 1 if mine < theirs else 2] += 1
+
+    def record(team: str) -> str:
+        w, l, t = tally.get(team, [0, 0, 0])
+        return f"{w}-{l}-{t}" if t else f"{w}-{l}"
+
     now = datetime.now(EASTERN)
     out: list[SlateGameOut] = []
     for g in games:
@@ -216,6 +259,8 @@ async def picks_slate(
                 split=PickSplitOut(away=away_n, home=home_n, total=away_n + home_n),
                 winner=win,
                 your_result=result,
+                away_record=record(g.away_team),
+                home_record=record(g.home_team),
                 model_home_win_prob=pred.home_win_prob if pred else None,
                 model_favorite=pred.predicted_winner if pred else None,
             )

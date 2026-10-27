@@ -48,8 +48,8 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
         <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-6 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
           <div>Rough Draft Football • roughdraftfootball.com</div>
           <div className="flex gap-4">
-            <Link href="/picks" className="hover:text-slate-300 transition-colors">
-              Picks
+            <Link href="/schedule" className="hover:text-slate-300 transition-colors">
+              Schedule
             </Link>
             <Link href="/power" className="hover:text-slate-300 transition-colors">
               Power Rankings

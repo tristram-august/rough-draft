@@ -1,12 +1,7 @@
-import type { Metadata } from "next";
-import PicksPage from "../ui/picks-page";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = {
-  title: "Picks",
-  description:
-    "Pick every NFL game straight up and track your record against everyone else, week by week.",
-};
-
+// Picking is switched off for 2026 (see PICKS_ENABLED in ui/picks-page.tsx);
+// the same page now lives at /schedule.
 export default function Page() {
-  return <PicksPage />;
+  redirect("/schedule");
 }

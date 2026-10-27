@@ -10,6 +10,8 @@ export type SlateGame = Game & {
   split: PickSplit;
   winner: string | null;
   your_result: "win" | "loss" | "push" | null;
+  away_record: string | null;
+  home_record: string | null;
   model_home_win_prob: number | null;
   model_favorite: string | null;
 };
@@ -54,6 +56,26 @@ function pickHeaders(token?: string | null): HeadersInit {
   const headers: Record<string, string> = { "X-Client-Id": getClientId() };
   if (token) headers.Authorization = `Bearer ${token}`;
   return headers;
+}
+
+export type ScheduleWeek = { week: number; game_type: string };
+export type ScheduleSeason = { season: number; weeks: ScheduleWeek[] };
+
+export async function fetchScheduleCalendar(): Promise<ScheduleSeason[]> {
+  const res = await fetch(`${API_BASE}/picks/calendar`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Failed to load the schedule calendar (${res.status})`);
+  return res.json();
+}
+
+const ROUND_LABELS: Record<string, string> = {
+  WC: "Wild Card",
+  DIV: "Divisional",
+  CON: "Conference Championships",
+  SB: "Super Bowl",
+};
+
+export function weekLabel(w: { week: number; game_type: string | null }) {
+  return (w.game_type && ROUND_LABELS[w.game_type]) || `Week ${w.week}`;
 }
 
 export async function fetchSlate(
