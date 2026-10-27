@@ -68,6 +68,7 @@ SORT_COLUMNS = {
     "total": "fantasy_points",
     "games": "games",
     "name": "display_name",
+    "pass_completions": "pass_completions",
     "pass_attempts": "pass_attempts",
     "pass_yards": "pass_yards",
     "pass_tds": "pass_tds",
@@ -112,6 +113,7 @@ def _reception_points(scoring: str) -> float:
 
 def _stat_line(row: Any) -> FantasyStatLine:
     return FantasyStatLine(
+        pass_completions=int(row.pass_completions or 0),
         pass_attempts=int(row.pass_attempts or 0),
         pass_yards=int(row.pass_yards or 0),
         pass_tds=int(row.pass_tds or 0),
@@ -175,6 +177,7 @@ async def _opponent_map(
 def _sum_stat_columns() -> list[Any]:
     g = PlayerGameStat
     return [
+        cast(func.sum(_z(g.pass_completions)), Integer).label("pass_completions"),
         cast(func.sum(_z(g.pass_attempts)), Integer).label("pass_attempts"),
         cast(func.sum(_z(g.pass_yards)), Integer).label("pass_yards"),
         cast(func.sum(_z(g.pass_tds)), Integer).label("pass_tds"),
@@ -725,6 +728,7 @@ async def fantasy_player(
                 g.team,
                 g.opponent_team,
                 points.label("fantasy_points"),
+                g.pass_completions,
                 g.pass_attempts,
                 g.pass_yards,
                 g.pass_tds,

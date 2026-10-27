@@ -38,6 +38,7 @@ function columnsFor(position: FantasyPosition): Column[] {
   switch (position) {
     case "QB":
       return [
+        { key: "cmp", label: "Cmp", sortKey: "pass_completions", value: (r) => s(r).pass_completions },
         { key: "paatt", label: "Pa Att", sortKey: "pass_attempts", value: (r) => s(r).pass_attempts },
         { key: "payd", label: "Pa Yd", sortKey: "pass_yards", value: (r) => s(r).pass_yards },
         { key: "patd", label: "Pa TD", sortKey: "pass_tds", value: (r) => s(r).pass_tds },
